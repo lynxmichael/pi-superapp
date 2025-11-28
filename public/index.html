@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi SuperApp - Votre Application Multiservices Pi</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fab fa-pied-piper-alt"></i>
+                <span>Pi SuperApp</span>
+            </div>
+            
+            <div class="nav-menu" id="navMenu">
+                <a href="#home" class="nav-link active" data-section="home">
+                    <i class="fas fa-home"></i>
+                    <span>Accueil</span>
+                </a>
+                <a href="#marketplace" class="nav-link" data-section="marketplace">
+                    <i class="fas fa-store"></i>
+                    <span>Marketplace</span>
+                </a>
+                <a href="#wallet" class="nav-link" data-section="wallet">
+                    <i class="fas fa-wallet"></i>
+                    <span>Portefeuille</span>
+                </a>
+                <a href="#services" class="nav-link" data-section="services">
+                    <i class="fas fa-concierge-bell"></i>
+                    <span>Services</span>
+                </a>
+            </div>
+
+            <div class="nav-actions">
+                <div class="theme-toggle">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </div>
+                <div class="auth-buttons" id="authButtons">
+                    <button class="btn btn-outline" id="loginBtn">Connexion</button>
+                    <button class="btn btn-primary" id="registerBtn">Inscription</button>
+                </div>
+                <div class="user-menu" id="userMenu" style="display: none;">
+                    <div class="user-avatar" id="userAvatar">
+                        <img src="" alt="Avatar" id="avatarImg">
+                        <span id="username"></span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="#profile" data-section="profile">
+                            <i class="fas fa-user"></i>
+                            Mon Profil
+                        </a>
+                        <a href="#settings" data-section="settings">
+                            <i class="fas fa-cog"></i>
+                            Paramètres
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Déconnexion
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-toggle" id="navToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Section Accueil -->
+        <section id="home" class="section active">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h1 class="hero-title">
+                        Bienvenue sur 
+                        <span class="gradient-text">Pi SuperApp</span>
+                    </h1>
+                    <p class="hero-subtitle">
+                        Votre application tout-en-un pour le réseau Pi. 
+                        Marketplace, portefeuille, services et bien plus encore.
+                    </p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary btn-large" id="exploreBtn">
+                            Explorer l'Application
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                        <button class="btn btn-outline btn-large" id="learnMoreBtn">
+                            En savoir plus
+                        </button>
+                    </div>
+                </div>
+                <div class="hero-graphics">
+                    <div class="graphic-card">
+                        <i class="fas fa-shopping-cart"></i>
+                        <h3>Marketplace</h3>
+                        <p>Achetez et vendez avec Pi</p>
+                    </div>
+                    <div class="graphic-card">
+                        <i class="fas fa-wallet"></i>
+                        <h3>Portefeuille</h3>
+                        <p>Gérez vos Pi coins</p>
+                    </div>
+                    <div class="graphic-card">
+                        <i class="fas fa-gamepad"></i>
+                        <h3>Jeux</h3>
+                        <p>Divertissement et récompenses</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h2 class="section-title">Fonctionnalités Principales</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-store"></i>
+                        </div>
+                        <h3>Marketplace</h3>
+                        <p>Achetez et vendez des produits et services avec des paiements Pi sécurisés.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <h3>Portefeuille Digital</h3>
+                        <p>Gérez votre solde Pi, consultez l'historique et effectuez des transferts.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <h3>Recharge</h3>
+                        <p>Rechargez votre crédit mobile et payez vos factures avec Pi.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-gamepad"></i>
+                        </div>
+                        <h3>Jeux & Divertissement</h3>
+                        <p>Jouez à des jeux passionnants et gagnez des récompenses en Pi.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <h3>Réservations</h3>
+                        <p>Réservez des services et payez avec votre portefeuille Pi.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-file-contract"></i>
+                        </div>
+                        <h3>Abonnements</h3>
+                        <p>Gérez vos abonnements avec des paiements récurrents en Pi.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Marketplace -->
+        <section id="marketplace" class="section">
+            <div class="section-header">
+                <h2>Marketplace</h2>
+                <p>Découvrez des produits et services payables en Pi</p>
+            </div>
+
+            <div class="marketplace-controls">
+                <div class="search-bar">
+                    <input type="text" id="productSearch" placeholder="Rechercher des produits...">
+                    <i class="fas fa-search"></i>
+                </div>
+                <select id="categoryFilter" aria-label="Filtrer par catégorie">
+                    <option value="">Toutes les catégories</option>
+                </select>
+                <button class="btn btn-primary" id="addProductBtn">
+                    <i class="fas fa-plus"></i>
+                    Ajouter un produit
+                </button>
+            </div>
+
+            <div class="products-grid" id="productsGrid">
+                <!-- Les produits seront chargés ici dynamiquement -->
+            </div>
+
+            <div class="load-more" id="loadMoreProducts">
+                <button class="btn btn-outline">Charger plus de produits</button>
+            </div>
+        </section>
+
+        <!-- Section Portefeuille -->
+        <section id="wallet" class="section">
+            <div class="wallet-header">
+                <h2>Mon Portefeuille Pi</h2>
+                <div class="wallet-balance">
+                    <div class="balance-amount">
+                        <span id="balanceValue">0.00</span>
+                        <span class="currency">π</span>
+                    </div>
+                    <p class="balance-label">Solde disponible</p>
+                </div>
+            </div>
+
+            <div class="wallet-actions">
+                <button class="wallet-action-btn" id="sendMoneyBtn">
+                    <i class="fas fa-paper-plane"></i>
+                    Envoyer
+                </button>
+                <button class="wallet-action-btn" id="receiveMoneyBtn">
+                    <i class="fas fa-qrcode"></i>
+                    Recevoir
+                </button>
+                <button class="wallet-action-btn" id="transactionHistoryBtn">
+                    <i class="fas fa-history"></i>
+                    Historique
+                </button>
+            </div>
+
+            <div class="wallet-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalEarned">0</div>
+                    <div class="stat-label">Pi Gagnés</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalSpent">0</div>
+                    <div class="stat-label">Pi Dépensés</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTransactions">0</div>
+                    <div class="stat-label">Transactions</div>
+                </div>
+            </div>
+
+            <div class="recent-transactions">
+                <h3>Transactions Récentes</h3>
+                <div class="transactions-list" id="transactionsList">
+                    <!-- Transactions chargées dynamiquement -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Services -->
+        <section id="services" class="section">
+            <div class="section-header">
+                <h2>Nos Services</h2>
+                <p>Découvrez tous les services disponibles avec Pi</p>
+            </div>
+
+            <div class="services-grid">
+                <div class="service-card" data-service="recharge">
+                    <div class="service-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3>Recharge Mobile</h3>
+                    <p>Rechargez votre crédit mobile en Pi</p>
+                    <button class="btn btn-outline">Utiliser</button>
+                </div>
+
+                <div class="service-card" data-service="ecommerce">
+                    <div class="service-icon">
+                        <i class="fas fa-shopping-bag"></i>
+                    </div>
+                    <h3>E-commerce</h3>
+                    <p>Boutique en ligne avec paiement Pi</p>
+                    <button class="btn btn-outline">Explorer</button>
+                </div>
+
+                <div class="service-card" data-service="games">
+                    <div class="service-icon">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    <h3>Jeux</h3>
+                    <p>Jeux divertissants avec récompenses Pi</p>
+                    <button class="btn btn-outline">Jouer</button>
+                </div>
+
+                <div class="service-card" data-service="subscriptions">
+                    <div class="service-icon">
+                        <i class="fas fa-newspaper"></i>
+                    </div>
+                    <h3>Abonnements</h3>
+                    <p>Abonnements avec paiements récurrents</p>
+                    <button class="btn btn-outline">Voir les offres</button>
+                </div>
+
+                <div class="service-card" data-service="reservations">
+                    <div class="service-icon">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <h3>Réservations</h3>
+                    <p>Réservez des services en Pi</p>
+                    <button class="btn btn-outline">Réserver</button>
+                </div>
+
+                <div class="service-card" data-service="files">
+                    <div class="service-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <h3>Stockage Fichiers</h3>
+                    <p>Stockez et partagez vos fichiers</p>
+                    <button class="btn btn-outline">Uploader</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Profil -->
+        <section id="profile" class="section">
+            <div class="profile-section">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <img src="" alt="Avatar" id="profileAvatar">
+                        <button class="edit-avatar-btn" title="Modifier l'avatar">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                    </div>
+                    <div class="profile-info">
+                        <h2 id="profileUsername">Utilisateur Pi</h2>
+                        <p id="profileWallet">Chargement...</p>
+                        <div class="profile-stats">
+                            <span>Membre depuis <span id="memberSince">--</span></span>
+                            <span>•</span>
+                            <span><span id="loginCount">0</span> connexions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-content">
+                    <div class="profile-tabs">
+                        <button class="tab-btn active" data-tab="info">Informations</button>
+                        <button class="tab-btn" data-tab="preferences">Préférences</button>
+                        <button class="tab-btn" data-tab="security">Sécurité</button>
+                        <button class="tab-btn" data-tab="verification">Vérification</button>
+                    </div>
+
+                    <div class="tab-content">
+                        <div id="info-tab" class="tab-pane active">
+                            <form id="profileForm" class="profile-form">
+                                <div class="form-group">
+                                    <label>Nom d'utilisateur Pi</label>
+                                    <input type="text" id="piUsername" readonly placeholder="Nom d'utilisateur Pi" title="Nom d'utilisateur Pi">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" id="profileEmail" readonly placeholder="Email" title="Email">
+                                </div>
+                                <div class="form-group">
+                                    <label>Téléphone</label>
+                                    <input type="tel" id="profilePhone"readonly placeholder="Téléphone" title="Téléphone" >
+                                </div>
+                                <div class="form-group">
+                                    <label>Prénom</label>
+                                    <input type="text" id="profileFirstName" readonly placeholder="nom" title="nom">
+                                </div>
+                                <div class="form-group">
+                                    <label>Nom</label>
+                                    <input type="text" id="profileLastName"readonly placeholder="prenom" title="prenom">
+                                </div>
+                                <div class="form-group">
+                                    <label>Bio</label>
+                                    <textarea id="profileBio" rows="3" title="Bio" placeholder="Décrivez-vous ici..."></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Enregistrer</button>
+                            </form>
+                        </div>
+
+                        <div id="preferences-tab" class="tab-pane">
+                            <form id="preferencesForm" class="profile-form">
+                                <div class="form-group">
+                                    <label>Langue</label>
+                                    <select id="prefLanguage" title="Langue">
+                                        <option value="fr">Français</option>
+                                        <option value="en">English</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Devise</label>
+                                    <select id="prefCurrency" title="currence">
+                                        <option value="PI">Pi (π)</option>
+                                        <option value="USD">USD ($)</option>
+                                        <option value="EUR">EUR (€)</option>
+                                    </select>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" id="prefNotifications" checked>
+                                    <label for="prefNotifications">Notifications par email</label>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Enregistrer</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="authModalTitle">Connexion</h3>
+                <button class="modal-close" id="authModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label>Nom d'utilisateur Pi ou Adresse Wallet</label>
+                        <input type="text" id="loginIdentifier" readonly placeholder="Nom d'utilisateur Pi ou Adresse Wallet" title="Nom d'utilisateur Pi ou Adresse Wallet" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+                </form>
+
+                <form id="registerForm" class="auth-form" style="display: none;">
+                    <div class="form-group">
+                        <label>Nom d'utilisateur Pi</label>
+                        <input type="text" id="registerUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label>UID Pi</label>
+                        <input type="text" id="registerUid" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Adresse Wallet Pi</label>
+                        <input type="text" id="registerWallet" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="registerEmail">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">S'inscrire</button>
+                </form>
+
+                <div class="auth-switch">
+                    <span id="authSwitchText">Pas de compte ?</span>
+                    <button class="btn-link" id="authSwitchBtn">S'inscrire</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/marketplace.js"></script>
+    <script src="js/wallet.js"></script>
+    <script src="js/ui.js"></script>
+</body>
+</html>
