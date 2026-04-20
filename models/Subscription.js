@@ -3,44 +3,26 @@ const mongoose = require('mongoose');
 const subscriptionSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: true,
+    unique: true
   },
-  description: {
-    type: String,
-    required: true
-  },
+  description: String,
   price: {
     type: Number,
-    required: true
-  },
-  currency: {
-    type: String,
-    default: 'PI'
-  },
-  billingCycle: {
-    type: String,
-    enum: ['daily', 'weekly', 'monthly', 'yearly'],
-    required: true
-  },
-  features: [{
-    name: String,
-    included: { type: Boolean, default: true }
-  }],
-  status: {
-    type: String,
-    enum: ['active', 'inactive'],
-    default: 'active'
-  },
-  maxUsage: {
-    type: Number
-  },
-  trialPeriod: {
-    type: Number, // en jours
+    required: true,
     default: 0
+  },
+  duration: {
+    type: Number,
+    required: true,
+    default: 30 // jours
+  },
+  features: [String],
+  isActive: {
+    type: Boolean,
+    default: true
   }
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
 const userSubscriptionSchema = new mongoose.Schema({
   user: {
@@ -53,49 +35,26 @@ const userSubscriptionSchema = new mongoose.Schema({
     ref: 'Subscription',
     required: true
   },
-  status: {
-    type: String,
-    enum: ['active', 'cancelled', 'expired', 'pending'],
-    default: 'active'
-  },
   startDate: {
     type: Date,
+    required: true,
     default: Date.now
   },
   endDate: {
     type: Date,
     required: true
   },
-  nextBillingDate: {
-    type: Date
-  },
-  autoRenew: {
+  isActive: {
     type: Boolean,
     default: true
   },
-  paymentHistory: [{
-    payment: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Payment'
-    },
-    amount: Number,
-    date: Date,
-    status: String
-  }]
-}, {
-  timestamps: true
-});
+  autoRenew: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
 
-// Index
-userSubscriptionSchema.index({ user: 1, status: 1 });
-userSubscriptionSchema.index({ endDate: 1 });
+const Subscription = mongoose.model('Subscription', subscriptionSchema);
+const UserSubscription = mongoose.model('UserSubscription', userSubscriptionSchema);
 
-// Méthode pour vérifier si l'abonnement est actif
-userSubscriptionSchema.methods.isActive = function() {
-  return this.status === 'active' && this.endDate > new Date();
-};
-
-module.exports = {
-  Subscription: mongoose.model('Subscription', subscriptionSchema),
-  UserSubscription: mongoose.model('UserSubscription', userSubscriptionSchema)
-};
+module.exports = { Subscription, UserSubscription };

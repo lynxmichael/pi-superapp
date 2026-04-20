@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | Pi SuperApp</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1; --primary-dark: #4f46e5; --primary-light: #818cf8;
+            --success: #10b981; --success-light: #d1fae5;
+            --danger: #ef4444; --danger-light: #fee2e2;
+            --warning: #f59e0b; --warning-light: #fef3c7;
+            --info: #3b82f6; --info-light: #dbeafe;
+            --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db;
+            --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563; --gray-700: #374151;
+            --gray-800: #1f2937; --gray-900: #111827;
+            --radius: 12px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 25px -3px rgba(0,0,0,0.1);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'DM Sans',system-ui,sans-serif; background:var(--gray-100); color:var(--gray-800); min-height:100vh; }
+
+        /* SIDEBAR */
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100vh; background:var(--gray-900); color:white; z-index:100; display:flex; flex-direction:column; transition:transform .3s; }
+        .sidebar-header { padding:24px 20px; border-bottom:1px solid rgba(255,255,255,.08); }
+        .sidebar-header h1 { font-size:1.2rem; font-weight:700; display:flex; align-items:center; gap:10px; }
+        .sidebar-header h1 i { color:var(--primary-light); }
+        .sidebar-header small { display:block; margin-top:4px; color:var(--gray-400); font-size:.8rem; }
+        .sidebar-nav { flex:1; padding:16px 12px; overflow-y:auto; }
+        .nav-label { font-size:.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--gray-500); padding:14px 16px 6px; font-weight:600; }
+        .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:11px 16px; color:var(--gray-400); text-decoration:none; border-radius:10px; font-weight:500; font-size:.93rem; transition:all .2s; margin-bottom:2px; position:relative; }
+        .sidebar-nav a:hover { background:rgba(255,255,255,.06); color:white; }
+        .sidebar-nav a.active { background:var(--primary); color:white; }
+        .sidebar-nav a i { width:20px; text-align:center; }
+        .nav-badge { position:absolute; right:12px; background:var(--danger); color:white; font-size:.7rem; font-weight:700; padding:2px 7px; border-radius:10px; min-width:20px; text-align:center; }
+        .sidebar-footer { padding:16px 20px; border-top:1px solid rgba(255,255,255,.08); }
+        .sidebar-footer a { display:flex; align-items:center; gap:10px; color:var(--gray-400); text-decoration:none; font-size:.9rem; padding:8px 0; transition:color .2s; }
+        .sidebar-footer a:hover { color:var(--danger); }
+
+        /* MAIN */
+        .main-content { margin-left:260px; min-height:100vh; }
+        .topbar { background:white; padding:16px 32px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--gray-200); position:sticky; top:0; z-index:50; }
+        .topbar-left { display:flex; align-items:center; gap:16px; }
+        .topbar-left h2 { font-size:1.25rem; font-weight:700; }
+        .breadcrumb { font-size:.85rem; color:var(--gray-400); }
+        .mobile-menu-btn { display:none; background:none; border:none; font-size:1.4rem; cursor:pointer; padding:8px; color:var(--gray-600); }
+        .topbar-right { display:flex; align-items:center; gap:12px; }
+        .btn-icon { width:40px; height:40px; border-radius:10px; border:1px solid var(--gray-200); background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--gray-500); transition:all .2s; }
+        .btn-icon:hover { background:var(--gray-50); color:var(--gray-700); }
+        .admin-avatar { width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,var(--primary),var(--primary-light)); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:.95rem; }
+
+        /* CONTENT */
+        .content-area { padding:28px 32px; }
+        .section-content { display:none; animation:fadeIn .3s; }
+
+        /* STATS */
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+        .stat-card { background:white; border-radius:var(--radius); padding:22px; box-shadow:var(--shadow-sm); border:1px solid var(--gray-200); border-top:4px solid var(--gray-300); transition:all .2s; }
+        .stat-card:hover { transform:translateY(-2px); box-shadow:var(--shadow); }
+        .stat-card.total { border-top-color:var(--primary); }
+        .stat-card.active { border-top-color:var(--success); }
+        .stat-card.suspended { border-top-color:var(--danger); }
+        .stat-card.pending { border-top-color:var(--warning); }
+        .stat-card.info-card { border-top-color:var(--info); }
+        .stat-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; font-size:1.1rem; }
+        .stat-card.total .stat-icon { background:rgba(99,102,241,.1); color:var(--primary); }
+        .stat-card.active .stat-icon { background:rgba(16,185,129,.1); color:var(--success); }
+        .stat-card.suspended .stat-icon { background:rgba(239,68,68,.1); color:var(--danger); }
+        .stat-card.pending .stat-icon { background:rgba(245,158,11,.1); color:var(--warning); }
+        .stat-card.info-card .stat-icon { background:rgba(59,130,246,.1); color:var(--info); }
+        .stat-number { font-size:1.7rem; font-weight:700; }
+        .stat-label { color:var(--gray-500); font-size:.88rem; margin-top:2px; }
+
+        /* TABLE */
+        .table-card { background:white; border-radius:var(--radius); box-shadow:var(--shadow-sm); border:1px solid var(--gray-200); overflow:hidden; }
+        .table-toolbar { padding:18px 20px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; border-bottom:1px solid var(--gray-200); }
+        .search-input { position:relative; flex:1; min-width:240px; }
+        .search-input i { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--gray-400); }
+        .search-input input { width:100%; padding:10px 14px 10px 40px; border:2px solid var(--gray-200); border-radius:10px; font-size:.93rem; font-family:inherit; transition:all .2s; }
+        .search-input input:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(99,102,241,.1); }
+        .filter-group { display:flex; gap:8px; flex-wrap:wrap; }
+        .filter-group select { padding:9px 12px; border:2px solid var(--gray-200); border-radius:10px; font-family:inherit; font-size:.88rem; color:var(--gray-600); cursor:pointer; background:white; min-width:130px; }
+        .toolbar-actions { display:flex; gap:8px; margin-left:auto; }
+        .table-container { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; }
+        thead th { padding:13px 16px; text-align:left; font-size:.78rem; text-transform:uppercase; letter-spacing:.5px; color:var(--gray-500); background:var(--gray-50); border-bottom:1px solid var(--gray-200); font-weight:600; white-space:nowrap; }
+        tbody td { padding:13px 16px; border-bottom:1px solid var(--gray-100); vertical-align:middle; }
+        tbody tr:hover { background:var(--gray-50); }
+        .table-footer { padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-top:1px solid var(--gray-200); flex-wrap:wrap; gap:12px; }
+        .table-footer .info { font-size:.85rem; color:var(--gray-500); }
+        .per-page select { padding:6px 10px; border:1px solid var(--gray-200); border-radius:8px; font-size:.85rem; font-family:inherit; }
+
+        /* BADGES */
+        .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:.78rem; font-weight:600; }
+        .badge-success { background:var(--success-light); color:#065f46; }
+        .badge-danger { background:var(--danger-light); color:#991b1b; }
+        .badge-warning { background:var(--warning-light); color:#92400e; }
+        .badge-primary { background:rgba(99,102,241,.1); color:var(--primary-dark); }
+        .badge-secondary { background:var(--gray-100); color:var(--gray-500); }
+        .badge-info { background:var(--info-light); color:#1e40af; }
+
+        /* BUTTONS */
+        .btn { padding:10px 18px; border:none; border-radius:10px; font-weight:600; font-size:.9rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all .2s; font-family:inherit; }
+        .btn-primary { background:var(--primary); color:white; } .btn-primary:hover { background:var(--primary-dark); }
+        .btn-success { background:var(--success); color:white; } .btn-success:hover { opacity:.9; }
+        .btn-danger { background:var(--danger); color:white; } .btn-danger:hover { opacity:.9; }
+        .btn-warning { background:var(--warning); color:white; }
+        .btn-ghost { background:transparent; color:var(--gray-600); border:1px solid var(--gray-200); } .btn-ghost:hover { background:var(--gray-50); }
+        .btn-sm { padding:6px 12px; font-size:.82rem; border-radius:8px; }
+        .btn-action { width:32px; height:32px; border:none; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.8rem; transition:all .15s; }
+        .btn-view { background:var(--info-light); color:var(--info); }
+        .btn-kyc { background:var(--warning-light); color:var(--warning); }
+        .btn-warn { background:var(--warning-light); color:var(--warning); }
+        .btn-ok { background:var(--success-light); color:var(--success); }
+        .btn-del { background:var(--danger-light); color:var(--danger); }
+        .btn-action:hover { transform:scale(1.1); }
+
+        /* PAGINATION */
+        .pagination { display:flex; gap:4px; align-items:center; }
+        .page-btn { width:34px; height:34px; border:1px solid var(--gray-200); border-radius:8px; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:600; font-family:inherit; color:var(--gray-600); transition:all .15s; }
+        .page-btn:hover { border-color:var(--primary); color:var(--primary); }
+        .page-btn.active { background:var(--primary); color:white; border-color:var(--primary); }
+        .page-btn:disabled { opacity:.4; cursor:default; }
+
+        /* MODALS */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); backdrop-filter:blur(4px); z-index:200; align-items:center; justify-content:center; padding:20px; }
+        .modal-overlay.show { display:flex; animation:fadeIn .2s; }
+        .modal-box { background:white; border-radius:16px; width:100%; max-width:600px; max-height:90vh; overflow-y:auto; animation:slideUp .3s; box-shadow:0 25px 60px rgba(0,0,0,.3); }
+        .modal-head { padding:20px 24px; border-bottom:1px solid var(--gray-200); display:flex; align-items:center; justify-content:space-between; }
+        .modal-head h3 { font-size:1.1rem; font-weight:700; display:flex; align-items:center; gap:8px; }
+        .close-btn { background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--gray-400); padding:4px; line-height:1; }
+        .close-btn:hover { color:var(--gray-700); }
+        .modal-body { padding:24px; }
+        .modal-foot { padding:16px 24px; border-top:1px solid var(--gray-200); display:flex; justify-content:flex-end; gap:10px; }
+
+        /* DETAIL / KYC / FORM */
+        .detail-item { margin-bottom:8px; }
+        .detail-item label { display:block; font-size:.78rem; text-transform:uppercase; letter-spacing:.5px; color:var(--gray-400); font-weight:600; margin-bottom:2px; }
+        .detail-item span { font-weight:500; color:var(--gray-800); font-size:.9rem; }
+        .kyc-section { margin-bottom:16px; }
+        .kyc-section h4 { font-size:.95rem; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+        .kyc-doc-img { width:100%; border-radius:10px; border:2px solid var(--gray-200); cursor:zoom-in; transition:all .2s; max-height:200px; object-fit:contain; background:var(--gray-50); }
+        .kyc-doc-img:hover { border-color:var(--primary); box-shadow:var(--shadow); }
+        .kyc-selfie-img { width:120px; height:120px; border-radius:50%; object-fit:cover; border:4px solid var(--primary); cursor:zoom-in; }
+        .kyc-doc-placeholder { background:var(--gray-100); border-radius:10px; padding:30px; text-align:center; color:var(--gray-400); font-size:.9rem; }
+        .kyc-card { background:white; border-radius:var(--radius); padding:20px; box-shadow:var(--shadow-sm); border:1px solid var(--gray-200); border-left:4px solid var(--warning); margin-bottom:12px; }
+        .form-field { margin-bottom:16px; }
+        .form-field label { display:block; margin-bottom:6px; font-weight:600; font-size:.88rem; color:var(--gray-700); }
+        .form-field input,.form-field select,.form-field textarea { width:100%; padding:10px 14px; border:2px solid var(--gray-200); border-radius:10px; font-family:inherit; font-size:.9rem; transition:all .2s; }
+        .form-field input:focus,.form-field select:focus,.form-field textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(99,102,241,.1); }
+
+        /* SETTINGS */
+        .settings-card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow-sm); border:1px solid var(--gray-200); margin-bottom:16px; }
+        .settings-card h4 { font-size:1rem; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+        .setting-row { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--gray-100); gap:16px; }
+        .setting-row:last-child { border-bottom:none; }
+        .setting-info { flex:1; }
+        .setting-info strong { display:block; font-size:.9rem; color:var(--gray-800); }
+        .setting-info span { font-size:.82rem; color:var(--gray-500); }
+        .toggle { position:relative; width:44px; height:24px; flex-shrink:0; }
+        .toggle input { opacity:0; width:0; height:0; }
+        .toggle-slider { position:absolute; cursor:pointer; inset:0; background:var(--gray-300); border-radius:24px; transition:.3s; }
+        .toggle-slider::before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; }
+        .toggle input:checked+.toggle-slider { background:var(--primary); }
+        .toggle input:checked+.toggle-slider::before { transform:translateX(20px); }
+
+        /* DASHBOARD CARDS */
+        .dash-card { background:white; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow-sm); border:1px solid var(--gray-200); }
+        .dash-card h4 { font-size:1rem; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+        .recent-item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--gray-100); }
+        .recent-item:last-child { border-bottom:none; }
+
+        /* TOAST / LOADING */
+        .toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
+        .toast { padding:14px 20px; border-radius:12px; color:white; font-weight:500; font-size:.93rem; display:flex; align-items:center; gap:10px; box-shadow:var(--shadow-lg); animation:slideInRight .3s,fadeOut .4s forwards; animation-delay:0s,3.5s; min-width:280px; max-width:400px; }
+        .toast.success { background:var(--success); } .toast.error { background:var(--danger); } .toast.warning { background:var(--warning); } .toast.info { background:var(--info); }
+        .loading-overlay { display:none; position:fixed; inset:0; background:rgba(255,255,255,.8); z-index:300; align-items:center; justify-content:center; }
+        .loading-overlay.show { display:flex; }
+        .spinner { width:48px; height:48px; border:4px solid var(--gray-200); border-top-color:var(--primary); border-radius:50%; animation:spin .8s linear infinite; }
+
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes slideInRight{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes fadeOut{from{opacity:1}to{opacity:0}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+
+        @media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main-content{margin-left:0}.mobile-menu-btn{display:block}.content-area{padding:20px 16px}.topbar{padding:14px 16px}}
+        @media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr);gap:12px}.table-toolbar{flex-direction:column;align-items:stretch}.search-input{min-width:auto}.toolbar-actions{margin-left:0}.filter-group{width:100%}.filter-group select{flex:1;min-width:auto}.modal-box{max-width:100%;margin:10px}}
+        @media(max-width:480px){.stats-grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <h1><i class="fab fa-pied-piper-alt"></i> Pi SuperApp</h1>
+        <small>Panneau d'administration</small>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-label">Principal</div>
+        <a href="#" data-section="dashboard"><i class="fas fa-chart-bar"></i> Tableau de bord</a>
+        <a href="#" class="active" data-section="users"><i class="fas fa-users"></i> Utilisateurs</a>
+        <a href="#" data-section="kyc"><i class="fas fa-id-card"></i> Demandes KYC <span class="nav-badge" id="kycPendingBadge" style="display:none">0</span></a>
+        <div class="nav-label">Finance</div>
+        <a href="#" data-section="wallets"><i class="fas fa-wallet"></i> Wallets</a>
+        <a href="#" data-section="transactions"><i class="fas fa-exchange-alt"></i> Transactions</a>
+        <div class="nav-label">Système</div>
+        <a href="#" data-section="settings"><i class="fas fa-cog"></i> Paramètres</a>
+    </nav>
+    <div class="sidebar-footer">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;margin-bottom:8px">
+            <div class="admin-avatar" id="adminAvatarText" style="width:32px;height:32px;font-size:.8rem">A</div>
+            <span style="color:var(--gray-300);font-size:.9rem;font-weight:500" id="adminName">Admin</span>
+        </div>
+        <a href="/"><i class="fas fa-arrow-left"></i> Retour à l'app</a>
+        <a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
+    </div>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<div class="main-content">
+    <div class="topbar">
+        <div class="topbar-left">
+            <button class="mobile-menu-btn" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+            <div><h2 id="topbarTitle">Gestion des utilisateurs</h2><div class="breadcrumb" id="topbarBreadcrumb">Admin / Utilisateurs</div></div>
+        </div>
+        <div class="topbar-right">
+            <button class="btn-icon" title="Rafraîchir" id="refreshBtn"><i class="fas fa-sync-alt"></i></button>
+            <button class="btn-icon" title="Notifications"><i class="fas fa-bell"></i></button>
+            <div class="admin-avatar" id="adminAvatarText2">A</div>
+        </div>
+    </div>
+
+    <div class="content-area">
+
+        <!-- ========== DASHBOARD ========== -->
+        <div class="section-content" id="section-dashboard">
+            <div class="stats-grid" id="dashStats"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                <div class="dash-card">
+                    <h4><i class="fas fa-user-plus" style="color:var(--primary)"></i> Derniers inscrits</h4>
+                    <div id="recentUsersList"><p style="color:var(--gray-400);text-align:center;padding:20px;">Chargement...</p></div>
+                </div>
+                <div class="dash-card">
+                    <h4><i class="fas fa-id-card" style="color:var(--warning)"></i> KYC en attente</h4>
+                    <div id="dashKycList"><p style="color:var(--gray-400);text-align:center;padding:20px;">Chargement...</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== UTILISATEURS ========== -->
+        <div class="section-content" id="section-users" style="display:block;">
+            <div class="stats-grid">
+                <div class="stat-card total"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-number" id="totalUsers">—</div><div class="stat-label">Total utilisateurs</div></div>
+                <div class="stat-card active"><div class="stat-icon"><i class="fas fa-user-check"></i></div><div class="stat-number" id="activeUsers">—</div><div class="stat-label">Actifs</div></div>
+                <div class="stat-card suspended"><div class="stat-icon"><i class="fas fa-user-slash"></i></div><div class="stat-number" id="suspendedUsers">—</div><div class="stat-label">Suspendus</div></div>
+                <div class="stat-card pending"><div class="stat-icon"><i class="fas fa-id-card"></i></div><div class="stat-number" id="pendingKYC">—</div><div class="stat-label">KYC en attente</div></div>
+            </div>
+            <div class="table-card">
+                <div class="table-toolbar">
+                    <div class="search-input"><i class="fas fa-search"></i><input type="text" id="search" placeholder="Rechercher par nom, email, wallet..."></div>
+                    <div class="filter-group">
+                        <select id="roleFilter"><option value="">Tous les rôles</option><option value="admin">Admin</option><option value="merchant">Marchand</option><option value="user">Utilisateur</option></select>
+                        <select id="statusFilter"><option value="">Tous les statuts</option><option value="active">Actif</option><option value="suspended">Suspendu</option><option value="pending">En attente</option></select>
+                        <select id="kycFilter"><option value="">Tous KYC</option><option value="approved">Vérifié</option><option value="pending">En attente</option><option value="rejected">Rejeté</option><option value="none">Non vérifié</option></select>
+                    </div>
+                    <div class="toolbar-actions">
+                        <button class="btn btn-ghost btn-sm" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+                        <button class="btn btn-ghost btn-sm" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+                    </div>
+                </div>
+                <div class="table-container"><table><thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Solde</th><th>KYC</th><th>Dernière activité</th><th style="text-align:center;">Actions</th></tr></thead>
+                <tbody id="usersTable"><tr><td colspan="8"><div style="text-align:center;padding:60px;color:var(--gray-400);"><i class="fas fa-spinner fa-spin" style="font-size:2rem;display:block;margin-bottom:8px;"></i>Chargement...</div></td></tr></tbody></table></div>
+                <div class="table-footer">
+                    <div class="info" id="tableInfo">Affichage de 0 à 0 sur 0 entrées</div>
+                    <div style="display:flex;align-items:center;gap:16px;">
+                        <div class="per-page"><select id="limitSelect" onchange="changeLimit(this.value)"><option value="10">10/page</option><option value="25">25/page</option><option value="50">50/page</option></select></div>
+                        <div class="pagination" id="paginationContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== KYC ========== -->
+        <div class="section-content" id="section-kyc">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div><h3 style="font-size:1.1rem;font-weight:700;margin-bottom:4px;"><i class="fas fa-id-card" style="color:var(--warning);"></i> Demandes de vérification en attente</h3>
+                <p style="color:var(--gray-500);font-size:.9rem;">Examinez les documents, selfies et informations avant d'approuver ou rejeter.</p></div>
+                <button class="btn btn-ghost btn-sm" onclick="loadPendingKYC()"><i class="fas fa-sync-alt"></i> Rafraîchir</button>
+            </div>
+            <div id="kycListContainer"><div style="text-align:center;padding:40px;color:var(--gray-400);"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;"></i><p style="margin-top:8px;">Chargement...</p></div></div>
+        </div>
+
+        <!-- ========== WALLETS ========== -->
+        <div class="section-content" id="section-wallets">
+            <div class="stats-grid" id="walletStatsGrid"></div>
+            <div class="table-card">
+                <div class="table-toolbar">
+                    <div class="search-input"><i class="fas fa-search"></i><input type="text" id="walletSearch" placeholder="Rechercher par wallet, nom d'utilisateur..."></div>
+                    <div class="filter-group">
+                        <select id="walletStatusFilter"><option value="">Tous les wallets</option><option value="active">Actifs</option><option value="blocked">Bloqués</option></select>
+                    </div>
+                </div>
+                <div class="table-container"><table><thead><tr><th>Utilisateur</th><th>Adresse Wallet</th><th>Solde</th><th>Statut Wallet</th><th>KYC</th><th style="text-align:center;">Actions</th></tr></thead>
+                <tbody id="walletsTable"><tr><td colspan="6"><div style="text-align:center;padding:60px;color:var(--gray-400);"><i class="fas fa-spinner fa-spin" style="font-size:2rem;display:block;margin-bottom:8px;"></i>Chargement...</div></td></tr></tbody></table></div>
+                <div class="table-footer"><div class="info" id="walletTableInfo">—</div><div class="pagination" id="walletPagination"></div></div>
+            </div>
+        </div>
+
+        <!-- ========== TRANSACTIONS ========== -->
+        <div class="section-content" id="section-transactions">
+            <div class="stats-grid" id="txStatsGrid"></div>
+            <div class="table-card">
+                <div class="table-toolbar">
+                    <div class="search-input"><i class="fas fa-search"></i><input type="text" id="txSearch" placeholder="Rechercher par ID, utilisateur..."></div>
+                    <div class="filter-group">
+                        <select id="txTypeFilter"><option value="">Tous les types</option><option value="transfer">Transfert</option><option value="payment">Paiement</option><option value="deposit">Dépôt</option><option value="withdrawal">Retrait</option></select>
+                        <select id="txStatusFilter"><option value="">Tous les statuts</option><option value="completed">Complété</option><option value="pending">En attente</option><option value="failed">Échoué</option></select>
+                    </div>
+                </div>
+                <div class="table-container"><table><thead><tr><th>ID</th><th>De</th><th>À</th><th>Montant</th><th>Type</th><th>Statut</th><th>Date</th><th style="text-align:center;">Actions</th></tr></thead>
+                <tbody id="txTable"><tr><td colspan="8"><div style="text-align:center;padding:60px;color:var(--gray-400);"><i class="fas fa-spinner fa-spin" style="font-size:2rem;display:block;margin-bottom:8px;"></i>Chargement...</div></td></tr></tbody></table></div>
+                <div class="table-footer"><div class="info" id="txTableInfo">—</div><div class="pagination" id="txPagination"></div></div>
+            </div>
+        </div>
+
+        <!-- ========== PARAMÈTRES ========== -->
+        <div class="section-content" id="section-settings">
+            <div class="settings-card">
+                <h4><i class="fas fa-shield-alt" style="color:var(--primary);"></i> Sécurité</h4>
+                <div class="setting-row"><div class="setting-info"><strong>KYC obligatoire pour transactions</strong><span>Les utilisateurs doivent être vérifiés pour transférer des π</span></div><label class="toggle"><input type="checkbox" id="settingKycRequired"><span class="toggle-slider"></span></label></div>
+                <div class="setting-row"><div class="setting-info"><strong>Vérification email obligatoire</strong><span>Email vérifié requis avant activation du compte</span></div><label class="toggle"><input type="checkbox" checked id="settingEmailVerif"><span class="toggle-slider"></span></label></div>
+                <div class="setting-row"><div class="setting-info"><strong>Limite de transactions par jour</strong><span>Montant maximum par utilisateur en 24h</span></div><div><input type="number" value="1000" style="width:120px;padding:8px 12px;border:2px solid var(--gray-200);border-radius:8px;font-family:inherit;text-align:right;" id="settingDailyLimit"> <span style="color:var(--gray-500);">π</span></div></div>
+            </div>
+            <div class="settings-card">
+                <h4><i class="fas fa-bell" style="color:var(--warning);"></i> Notifications</h4>
+                <div class="setting-row"><div class="setting-info"><strong>Notifications email admin</strong><span>Recevoir un email pour chaque inscription</span></div><label class="toggle"><input type="checkbox" checked id="settingAdminEmail"><span class="toggle-slider"></span></label></div>
+                <div class="setting-row"><div class="setting-info"><strong>SMS pour KYC approuvé/rejeté</strong><span>Envoyer un SMS à l'utilisateur</span></div><label class="toggle"><input type="checkbox" checked id="settingSmsKyc"><span class="toggle-slider"></span></label></div>
+            </div>
+            <div class="settings-card">
+                <h4><i class="fas fa-tools" style="color:var(--info);"></i> Application</h4>
+                <div class="setting-row"><div class="setting-info"><strong>Mode maintenance</strong><span>Bloquer l'accès à l'app pour les utilisateurs</span></div><label class="toggle"><input type="checkbox" id="settingMaintenance"><span class="toggle-slider"></span></label></div>
+                <div class="setting-row"><div class="setting-info"><strong>Taux de change π → USD</strong><span>Valeur actuelle d'1 Pi en dollars</span></div><div><input type="number" value="0.01" step="0.001" style="width:120px;padding:8px 12px;border:2px solid var(--gray-200);border-radius:8px;font-family:inherit;text-align:right;" id="settingExchangeRate"> <span style="color:var(--gray-500);">$</span></div></div>
+            </div>
+            <div style="text-align:right;margin-top:16px;"><button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Enregistrer les paramètres</button></div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===== MODALS ===== -->
+<div class="modal-overlay" id="confirmModal"><div class="modal-box" style="max-width:440px;"><div class="modal-head"><h3 id="modalTitle">Confirmer l'action</h3><button class="close-btn" onclick="closeModal('confirmModal')">&times;</button></div><div class="modal-body"><p id="modalMessage" style="color:var(--gray-600);line-height:1.6;"></p></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('confirmModal')">Annuler</button><button class="btn btn-danger" id="confirmActionBtn" onclick="confirmAction()">Confirmer</button></div></div></div>
+<div class="modal-overlay" id="detailModal"><div class="modal-box" style="max-width:640px;"><div class="modal-head"><h3><i class="fas fa-user" style="color:var(--primary);"></i> Détail utilisateur</h3><button class="close-btn" onclick="closeModal('detailModal')">&times;</button></div><div class="modal-body" id="detailBody"></div></div></div>
+<div class="modal-overlay" id="editModal"><div class="modal-box" style="max-width:520px;"><div class="modal-head"><h3><i class="fas fa-user-edit" style="color:var(--primary);"></i> Modifier l'utilisateur</h3><button class="close-btn" onclick="closeModal('editModal')">&times;</button></div><div class="modal-body" id="editForm"></div></div></div>
+<div class="modal-overlay" id="kycModal"><div class="modal-box" style="max-width:700px;"><div class="modal-head"><h3><i class="fas fa-id-card" style="color:var(--warning);"></i> Examen de vérification KYC</h3><button class="close-btn" onclick="closeModal('kycModal')">&times;</button></div><div class="modal-body" id="kycBody"></div></div></div>
+<div class="modal-overlay" id="txDetailModal"><div class="modal-box" style="max-width:520px;"><div class="modal-head"><h3><i class="fas fa-receipt" style="color:var(--info);"></i> Détail transaction</h3><button class="close-btn" onclick="closeModal('txDetailModal')">&times;</button></div><div class="modal-body" id="txDetailBody"></div></div></div>
+
+<div class="loading-overlay" id="loadingOverlay"><div style="text-align:center;"><div class="spinner"></div><p style="margin-top:16px;color:var(--gray-500);font-weight:500;" id="loadingText">Chargement...</p></div></div>
+<div class="toast-container" id="toastContainer"></div>
+<script src="/js/admin-users.js"></script>
+</body>
+</html>

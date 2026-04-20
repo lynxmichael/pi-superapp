@@ -1,0 +1,199 @@
+/* ============================================================================
+   STYLES PROFIL & KYC — À AJOUTER À VOTRE CSS EXISTANT (style.css ou index.html)
+   ============================================================================ */
+
+/* ---- Info list (mode lecture) ---- */
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 160px;
+}
+
+.info-label i {
+  width: 18px;
+  text-align: center;
+  color: var(--primary-color, #6366f1);
+  font-size: 0.85rem;
+}
+
+.info-value {
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  text-align: right;
+  flex: 1;
+}
+
+/* ---- Bouton small ---- */
+.btn-small {
+  padding: 0.4rem 1rem !important;
+  font-size: 0.85rem !important;
+  border-radius: 8px !important;
+}
+
+/* ---- Status badges ---- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.status-badge.none {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ---- Upload zones ---- */
+.upload-zone {
+  transition: all 0.3s ease;
+}
+
+.upload-zone:hover {
+  border-color: var(--primary-color, #6366f1) !important;
+  background: rgba(99, 102, 241, 0.03) !important;
+}
+
+/* ---- KYC Stepper ---- */
+.kyc-stepper .step {
+  flex: 1;
+}
+
+/* ---- Profil tabs responsive ---- */
+.profile-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border-color, #e5e7eb);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.profile-tabs .tab-btn {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.profile-tabs .tab-btn:hover {
+  color: var(--primary-color, #6366f1);
+}
+
+.profile-tabs .tab-btn.active {
+  color: var(--primary-color, #6366f1);
+  border-bottom-color: var(--primary-color, #6366f1);
+}
+
+.profile-tabs .tab-btn i {
+  font-size: 0.85rem;
+}
+
+/* ---- Tab content ---- */
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Selfie video ---- */
+#selfieVideo {
+  transform: scaleX(-1);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .info-value {
+    text-align: left;
+  }
+
+  .info-label {
+    min-width: unset;
+  }
+
+  .profile-tabs .tab-btn {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.82rem;
+  }
+
+  .profile-tabs .tab-btn i {
+    display: none;
+  }
+
+  .stepper-header {
+    gap: 0.5rem;
+  }
+
+  .step-number {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 0.8rem;
+  }
+}

@@ -12,8 +12,8 @@ const getBalance = async (req, res) => {
       totalSpent: user.totalSpent
     });
   } catch (error) {
-    console.error('Erreur récupération solde:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération du solde' });
+    console.error('Erreur rÃ©cupÃ©ration solde:', error);
+    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration du solde' });
   }
 };
 
@@ -45,8 +45,8 @@ const getTransactions = async (req, res) => {
       total
     });
   } catch (error) {
-    console.error('Erreur récupération transactions:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des transactions' });
+    console.error('Erreur rÃ©cupÃ©ration transactions:', error);
+    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration des transactions' });
   }
 };
 
@@ -55,8 +55,8 @@ const getWalletAddress = async (req, res) => {
   try {
     res.json({ address: req.user.walletAddress });
   } catch (error) {
-    console.error('Erreur récupération adresse:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération de l\'adresse' });
+    console.error('Erreur rÃ©cupÃ©ration adresse:', error);
+    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration de l\'adresse' });
   }
 };
 
@@ -69,7 +69,7 @@ const transferFunds = async (req, res) => {
       return res.status(400).json({ error: 'Solde insuffisant' });
     }
 
-    // Créer un paiement de transfert
+    // CrÃ©er un paiement de transfert
     const payment = new Payment({
       paymentId: `transfer_${Date.now()}`,
       fromAddress: req.user.walletAddress,
@@ -83,7 +83,7 @@ const transferFunds = async (req, res) => {
 
     await payment.save();
 
-    // Mettre à jour les soldes
+    // Mettre Ã  jour les soldes
     await User.findByIdAndUpdate(req.user._id, {
       $inc: { 
         balance: -amount,
@@ -91,7 +91,7 @@ const transferFunds = async (req, res) => {
       }
     });
 
-    // Mettre à jour le destinataire (si dans notre système)
+    // Mettre Ã  jour le destinataire (si dans notre systÃ¨me)
     const recipient = await User.findOne({ walletAddress: toAddress });
     if (recipient) {
       await User.findByIdAndUpdate(recipient._id, {
@@ -103,7 +103,7 @@ const transferFunds = async (req, res) => {
     }
 
     res.json({
-      message: 'Transfert effectué avec succès',
+      message: 'Transfert effectuÃ© avec succÃ¨s',
       transaction: payment
     });
   } catch (error) {
@@ -133,7 +133,7 @@ const exportTransactions = async (req, res) => {
       .populate('serviceItem', 'name title');
 
     if (format === 'csv') {
-      // Générer CSV
+      // GÃ©nÃ©rer CSV
       const csv = generateCSV(transactions);
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=transactions.csv');
@@ -195,11 +195,11 @@ const getEarningStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur stats gains:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des statistiques' });
+    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration des statistiques' });
   }
 };
 
-// Fonction utilitaire pour générer CSV
+// Fonction utilitaire pour gÃ©nÃ©rer CSV
 const generateCSV = (transactions) => {
   const headers = ['Date', 'Type', 'Montant', 'Description', 'Statut'];
   let csv = headers.join(',') + '\n';
@@ -217,12 +217,42 @@ const generateCSV = (transactions) => {
 
   return csv;
 };
+// Obtenir les statistiques du wallet
+const getWalletStats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    const stats = await Payment.aggregate([
+      {
+        $match: {
+          user: userId,
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          transactionCount: { $sum: 1 }
+        }
+      }
+    ]);
 
+    res.json({
+      stats: {
+        transactionCount: stats[0]?.transactionCount || 0
+      }
+    });
+  } catch (error) {
+    console.error('Erreur getWalletStats:', error);
+    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration des statistiques' });
+  }
+};
 module.exports = {
   getBalance,
   getTransactions,
   getWalletAddress,
   transferFunds,
   exportTransactions,
-  getEarningStats
+  getEarningStats,
+   getWalletStats
 };

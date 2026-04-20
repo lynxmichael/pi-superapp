@@ -5,10 +5,160 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pi SuperApp - Votre Application Multiservices Pi</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/profile.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Styles additionnels pour les nouvelles fonctionnalités */
+        .validation-form, .validation-success, .validation-error {
+            display: none;
+        }
+        
+        .validation-form.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .validation-success.active, .validation-error.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .step.active .step-number {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .step.completed .step-number {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        
+        .code-input-group input.filled {
+            border-color: var(--primary-color);
+            background: rgba(124, 58, 237, 0.05);
+        }
+        
+        .code-input-group input.error {
+            animation: shake 0.5s ease;
+            border-color: #ef4444;
+            background: #fee2e2;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.none {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-badge.approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-badge.rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .tab-pane {
+            display: none;
+        }
+        
+        .tab-pane.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .profile-form .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .profile-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .profile-form input, .profile-form select, .profile-form textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+        }
+        
+        .form-check {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .form-check input {
+            margin-right: 0.5rem;
+        }
+        
+        .kyc-status {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        /* Correction des inline styles */
+        .send-money-stats .balance-info,
+        .history-controls .date-filter,
+        .history-stats .stat-card.mini {
+            all: unset;
+        }
+        
+        .send-money-stats .balance-info {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .history-controls .date-filter {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .history-stats .stat-card.mini {
+            background: var(--bg-secondary);
+            padding: 1.25rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <!-- Navigation -->
@@ -56,10 +206,6 @@
                         <a href="#profile" data-section="profile">
                             <i class="fas fa-user"></i>
                             Mon Profil
-                        </a>
-                        <a href="#settings" data-section="settings">
-                            <i class="fas fa-cog"></i>
-                            Paramètres
                         </a>
                         <div class="dropdown-divider"></div>
                         <a href="#" id="logoutBtn">
@@ -182,7 +328,7 @@
                     <input type="text" id="productSearch" placeholder="Rechercher des produits...">
                     <i class="fas fa-search"></i>
                 </div>
-                <select id="categoryFilter" aria-label="Filtrer par catégorie">
+                <select id="categoryFilter" title="category">
                     <option value="">Toutes les catégories</option>
                 </select>
                 <button class="btn btn-primary" id="addProductBtn">
@@ -192,10 +338,13 @@
             </div>
 
             <div class="products-grid" id="productsGrid">
-                <!-- Les produits seront chargés ici dynamiquement -->
+                <div class="loading-products">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Chargement des produits...</p>
+                </div>
             </div>
 
-            <div class="load-more" id="loadMoreProducts">
+            <div class="load-more" id="loadMoreProducts" style="display: none;">
                 <button class="btn btn-outline">Charger plus de produits</button>
             </div>
         </section>
@@ -246,7 +395,10 @@
             <div class="recent-transactions">
                 <h3>Transactions Récentes</h3>
                 <div class="transactions-list" id="transactionsList">
-                    <!-- Transactions chargées dynamiquement -->
+                    <div class="empty-state">
+                        <i class="fas fa-exchange-alt"></i>
+                        <p>Aucune transaction récente</p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -314,13 +466,17 @@
                 </div>
             </div>
         </section>
+<!-- ============================================================ -->
+<!-- SECTION PROFIL COMPLÈTE - À REMPLACER DANS index.html       -->
+<!-- Remplacez tout le bloc <section id="profile">...</section>  -->
+<!-- ============================================================ -->
 
-        <!-- Section Profil -->
         <section id="profile" class="section">
             <div class="profile-section">
+                <!-- En-tête du profil -->
                 <div class="profile-header">
                     <div class="profile-avatar">
-                        <img src="" alt="Avatar" id="profileAvatar">
+                        <img src="https://via.placeholder.com/150" alt="Avatar" id="profileAvatar">
                         <button class="edit-avatar-btn" title="Modifier l'avatar">
                             <i class="fas fa-camera"></i>
                         </button>
@@ -332,80 +488,497 @@
                             <span>Membre depuis <span id="memberSince">--</span></span>
                             <span>•</span>
                             <span><span id="loginCount">0</span> connexions</span>
+                            <span>•</span>
+                            <span class="status-badge none" id="kycBadgeHeader">Non vérifié</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- Onglets du profil -->
                 <div class="profile-content">
                     <div class="profile-tabs">
-                        <button class="tab-btn active" data-tab="info">Informations</button>
-                        <button class="tab-btn" data-tab="preferences">Préférences</button>
-                        <button class="tab-btn" data-tab="security">Sécurité</button>
-                        <button class="tab-btn" data-tab="verification">Vérification</button>
+                        <button class="tab-btn active" data-tab="info">
+                            <i class="fas fa-user"></i> Informations
+                        </button>
+                        <button class="tab-btn" data-tab="preferences">
+                            <i class="fas fa-sliders-h"></i> Préférences
+                        </button>
+                        <button class="tab-btn" data-tab="security">
+                            <i class="fas fa-lock"></i> Sécurité
+                        </button>
+                        <button class="tab-btn" data-tab="kyc">
+                            <i class="fas fa-id-card"></i> Vérification KYC
+                        </button>
                     </div>
 
                     <div class="tab-content">
+
+                        <!-- ========== ONGLET INFORMATIONS PERSONNELLES ========== -->
                         <div id="info-tab" class="tab-pane active">
-                            <form id="profileForm" class="profile-form">
-                                <div class="form-group">
-                                    <label>Nom d'utilisateur Pi</label>
-                                    <input type="text" id="piUsername" readonly placeholder="Nom d'utilisateur Pi" title="Nom d'utilisateur Pi">
+                            <!-- Résumé des informations (mode lecture) -->
+                            <div id="profileInfoView">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+                                    <h3 style="font-size:1.1rem;font-weight:700;">Informations personnelles</h3>
+                                    <button class="btn btn-outline btn-small" id="editProfileBtn">
+                                        <i class="fas fa-pen"></i> Modifier
+                                    </button>
                                 </div>
-                                <div class="form-group">
-                                    <label>Email</label>
-                                    <input type="email" id="profileEmail" readonly placeholder="Email" title="Email">
+
+                                <div class="info-list" id="profileInfoList">
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-user"></i> Nom d'utilisateur Pi</div>
+                                        <div class="info-value" id="infoUsername">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-envelope"></i> Email</div>
+                                        <div class="info-value" id="infoEmail">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-phone"></i> Téléphone</div>
+                                        <div class="info-value" id="infoPhone">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-id-badge"></i> Prénom</div>
+                                        <div class="info-value" id="infoFirstName">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-id-badge"></i> Nom</div>
+                                        <div class="info-value" id="infoLastName">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-calendar"></i> Date de naissance</div>
+                                        <div class="info-value" id="infoDateOfBirth">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-venus-mars"></i> Genre</div>
+                                        <div class="info-value" id="infoGender">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-map-marker-alt"></i> Pays / Ville</div>
+                                        <div class="info-value" id="infoLocation">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-home"></i> Adresse</div>
+                                        <div class="info-value" id="infoAddress">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-comment"></i> Bio</div>
+                                        <div class="info-value" id="infoBio">—</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label"><i class="fas fa-wallet"></i> Adresse Wallet</div>
+                                        <div class="info-value" id="infoWallet" style="font-family:monospace;font-size:0.85rem;word-break:break-all;">—</div>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>Téléphone</label>
-                                    <input type="tel" id="profilePhone"readonly placeholder="Téléphone" title="Téléphone" >
+                            </div>
+
+                            <!-- Formulaire d'édition (caché par défaut) -->
+                            <div id="profileInfoEdit" style="display:none;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+                                    <h3 style="font-size:1.1rem;font-weight:700;">Modifier mes informations</h3>
+                                    <button class="btn btn-outline btn-small" id="cancelEditBtn">
+                                        <i class="fas fa-times"></i> Annuler
+                                    </button>
                                 </div>
-                                <div class="form-group">
-                                    <label>Prénom</label>
-                                    <input type="text" id="profileFirstName" readonly placeholder="nom" title="nom">
-                                </div>
-                                <div class="form-group">
-                                    <label>Nom</label>
-                                    <input type="text" id="profileLastName"readonly placeholder="prenom" title="prenom">
-                                </div>
-                                <div class="form-group">
-                                    <label>Bio</label>
-                                    <textarea id="profileBio" rows="3" title="Bio" placeholder="Décrivez-vous ici..."></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-primary">Enregistrer</button>
-                            </form>
+                                <form id="profileForm" class="profile-form">
+                                    <div class="form-group">
+                                        <label for="piUsername">Nom d'utilisateur Pi</label>
+                                        <input type="text" id="piUsername" readonly placeholder="Nom d'utilisateur Pi" style="opacity:0.6;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Email</label>
+                                        <input type="email" id="profileEmail" readonly placeholder="votre@email.com" style="opacity:0.6;">
+                                        <small style="color:var(--text-secondary);">Pour changer l'email, allez dans Sécurité</small>
+                                    </div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                                        <div class="form-group">
+                                            <label>Prénom *</label>
+                                            <input type="text" id="profileFirstName" placeholder="Votre prénom" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Nom *</label>
+                                            <input type="text" id="profileLastName" placeholder="Votre nom" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Téléphone</label>
+                                        <input type="tel" id="profilePhone" placeholder="+225 XX XX XX XX">
+                                    </div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                                        <div class="form-group">
+                                            <label>Date de naissance</label>
+                                            <input type="date" id="profileDateOfBirth">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Genre</label>
+                                            <select id="profileGender">
+                                                <option value="">Non précisé</option>
+                                                <option value="male">Homme</option>
+                                                <option value="female">Femme</option>
+                                                <option value="other">Autre</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                                        <div class="form-group">
+                                            <label>Pays</label>
+                                            <input type="text" id="profileCountry" placeholder="Ex: Côte d'Ivoire">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Ville</label>
+                                            <input type="text" id="profileCity" placeholder="Ex: Abidjan">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Adresse complète</label>
+                                        <input type="text" id="profileAddress" placeholder="Quartier, rue, etc.">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Bio</label>
+                                        <textarea id="profileBio" rows="3" maxlength="500" placeholder="Décrivez-vous ici..."></textarea>
+                                        <small id="bioCharCount" style="color:var(--text-secondary);">0/500</small>
+                                    </div>
+                                    <div style="display:flex;gap:1rem;">
+                                        <button type="submit" class="btn btn-primary" style="flex:1;">
+                                            <i class="fas fa-save"></i> Enregistrer les modifications
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
 
+                        <!-- ========== ONGLET PRÉFÉRENCES ========== -->
                         <div id="preferences-tab" class="tab-pane">
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:1.5rem;">Préférences</h3>
                             <form id="preferencesForm" class="profile-form">
                                 <div class="form-group">
                                     <label>Langue</label>
-                                    <select id="prefLanguage" title="Langue">
+                                    <select id="prefLanguage">
                                         <option value="fr">Français</option>
                                         <option value="en">English</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
                                     <label>Devise</label>
-                                    <select id="prefCurrency" title="currence">
+                                    <select id="prefCurrency">
                                         <option value="PI">Pi (π)</option>
                                         <option value="USD">USD ($)</option>
                                         <option value="EUR">EUR (€)</option>
+                                        <option value="XOF">XOF (CFA)</option>
                                     </select>
                                 </div>
                                 <div class="form-check">
-                                    <input type="checkbox" id="prefNotifications" checked>
+                                    <input type="checkbox" id="prefNotifications">
                                     <label for="prefNotifications">Notifications par email</label>
                                 </div>
                                 <button type="submit" class="btn btn-primary">Enregistrer</button>
                             </form>
                         </div>
+
+                        <!-- ========== ONGLET SÉCURITÉ ========== -->
+                        <div id="security-tab" class="tab-pane">
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:1.5rem;">Sécurité du compte</h3>
+                            <form id="securityForm" class="profile-form">
+                                <div class="form-group">
+                                    <label>Nouveau PIN (6 chiffres)</label>
+                                    <input type="password" id="securityPin" maxlength="6" placeholder="Nouveau PIN (optionnel)" pattern="\d{6}">
+                                </div>
+                                <div class="form-group">
+                                    <label>PIN actuel (si changement)</label>
+                                    <input type="password" id="currentPin" maxlength="6" placeholder="PIN actuel">
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" id="twoFactorEnabled">
+                                    <label for="twoFactorEnabled">Activer l'authentification à deux facteurs</label>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Mettre à jour la sécurité</button>
+                            </form>
+                        </div>
+
+                        <!-- ========== ONGLET KYC COMPLET ========== -->
+                        <div id="kyc-tab" class="tab-pane">
+
+                            <!-- Statut KYC Banner -->
+                            <div class="kyc-status-banner" id="kycStatusBanner" style="padding:1.25rem;border-radius:12px;margin-bottom:1.5rem;display:flex;align-items:center;gap:1rem;background:var(--bg-secondary);border:1px solid var(--border-color);">
+                                <div id="kycStatusIcon" style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;background:#e5e7eb;color:#6b7280;">
+                                    <i class="fas fa-id-card"></i>
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;font-size:1rem;" id="kycStatusTitle">Non vérifié</div>
+                                    <div style="font-size:0.9rem;color:var(--text-secondary);" id="kycStatusDesc">Complétez la vérification pour utiliser toutes les fonctionnalités</div>
+                                </div>
+                                <span class="status-badge" id="kycStatusText">Non vérifié</span>
+                            </div>
+
+                            <!-- Étapes KYC (stepper) -->
+                            <div class="kyc-stepper" id="kycStepper" style="display:none;">
+                                <div class="stepper-header" style="display:flex;justify-content:space-between;margin-bottom:2rem;position:relative;">
+                                    <div class="stepper-line" style="position:absolute;top:20px;left:40px;right:40px;height:3px;background:var(--border-color);z-index:0;"></div>
+                                    <div class="stepper-line-progress" id="stepperProgress" style="position:absolute;top:20px;left:40px;height:3px;background:var(--primary-color,#6366f1);z-index:1;width:0%;transition:width 0.5s ease;"></div>
+
+                                    <div class="step" id="step1" data-step="1" style="text-align:center;position:relative;z-index:2;">
+                                        <div class="step-number" style="width:40px;height:40px;border-radius:50%;border:3px solid var(--border-color);background:white;display:flex;align-items:center;justify-content:center;font-weight:700;margin:0 auto 8px;transition:all 0.3s;">1</div>
+                                        <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Identité</div>
+                                    </div>
+                                    <div class="step" id="step2" data-step="2" style="text-align:center;position:relative;z-index:2;">
+                                        <div class="step-number" style="width:40px;height:40px;border-radius:50%;border:3px solid var(--border-color);background:white;display:flex;align-items:center;justify-content:center;font-weight:700;margin:0 auto 8px;transition:all 0.3s;">2</div>
+                                        <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Document</div>
+                                    </div>
+                                    <div class="step" id="step3" data-step="3" style="text-align:center;position:relative;z-index:2;">
+                                        <div class="step-number" style="width:40px;height:40px;border-radius:50%;border:3px solid var(--border-color);background:white;display:flex;align-items:center;justify-content:center;font-weight:700;margin:0 auto 8px;transition:all 0.3s;">3</div>
+                                        <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Selfie</div>
+                                    </div>
+                                    <div class="step" id="step4" data-step="4" style="text-align:center;position:relative;z-index:2;">
+                                        <div class="step-number" style="width:40px;height:40px;border-radius:50%;border:3px solid var(--border-color);background:white;display:flex;align-items:center;justify-content:center;font-weight:700;margin:0 auto 8px;transition:all 0.3s;">4</div>
+                                        <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Validation</div>
+                                    </div>
+                                </div>
+
+                                <!-- ÉTAPE 1: Informations d'identité -->
+                                <div class="kyc-step-content" id="kycStep1" style="display:block;">
+                                    <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">
+                                        <i class="fas fa-user-check" style="color:var(--primary-color,#6366f1);"></i> Vérification d'identité
+                                    </h3>
+                                    <p style="color:var(--text-secondary);margin-bottom:1.5rem;font-size:0.9rem;">
+                                        Veuillez confirmer vos informations personnelles. Elles doivent correspondre exactement à votre pièce d'identité.
+                                    </p>
+                                    <div class="profile-form">
+                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                                            <div class="form-group">
+                                                <label>Prénom (tel que sur la pièce) *</label>
+                                                <input type="text" id="kycFirstName" required placeholder="Votre prénom officiel">
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Nom (tel que sur la pièce) *</label>
+                                                <input type="text" id="kycLastName" required placeholder="Votre nom officiel">
+                                            </div>
+                                        </div>
+                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                                            <div class="form-group">
+                                                <label>Date de naissance *</label>
+                                                <input type="date" id="kycDateOfBirth" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Nationalité *</label>
+                                                <input type="text" id="kycNationality" required placeholder="Ex: Ivoirienne">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Adresse complète *</label>
+                                            <input type="text" id="kycAddress" required placeholder="Quartier, ville, pays">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Numéro de téléphone *</label>
+                                            <input type="tel" id="kycPhone" required placeholder="+225 XX XX XX XX XX">
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;justify-content:flex-end;margin-top:1.5rem;">
+                                        <button class="btn btn-primary" id="kycNextStep1">
+                                            Suivant <i class="fas fa-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- ÉTAPE 2: Upload de document -->
+                                <div class="kyc-step-content" id="kycStep2" style="display:none;">
+                                    <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">
+                                        <i class="fas fa-file-alt" style="color:var(--primary-color,#6366f1);"></i> Document d'identité
+                                    </h3>
+                                    <p style="color:var(--text-secondary);margin-bottom:1.5rem;font-size:0.9rem;">
+                                        Photographiez ou scannez votre pièce d'identité. Les photos doivent être nettes et lisibles.
+                                    </p>
+                                    <div class="profile-form">
+                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                                            <div class="form-group">
+                                                <label>Type de document *</label>
+                                                <select id="kycDocumentType" required>
+                                                    <option value="">Choisir...</option>
+                                                    <option value="id_card">Carte d'identité nationale</option>
+                                                    <option value="passport">Passeport</option>
+                                                    <option value="driver_license">Permis de conduire</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Numéro du document *</label>
+                                                <input type="text" id="kycDocumentNumber" required placeholder="N° de la pièce">
+                                            </div>
+                                        </div>
+
+                                        <!-- Upload Recto -->
+                                        <div class="form-group">
+                                            <label><i class="fas fa-image"></i> Recto du document *</label>
+                                            <div class="upload-zone" id="uploadFrontZone" style="border:2px dashed var(--border-color);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.3s;background:var(--bg-secondary);">
+                                                <div id="frontPlaceholder">
+                                                    <i class="fas fa-cloud-upload-alt" style="font-size:2.5rem;color:var(--primary-color,#6366f1);margin-bottom:0.75rem;display:block;"></i>
+                                                    <p style="font-weight:600;margin-bottom:0.25rem;">Cliquez ou glissez pour uploader</p>
+                                                    <small style="color:var(--text-secondary);">JPG, PNG — Max 5MB</small>
+                                                </div>
+                                                <img id="frontPreview" style="display:none;max-width:100%;max-height:200px;border-radius:8px;">
+                                            </div>
+                                            <input type="file" id="kycDocFront" accept="image/*" style="display:none;">
+                                        </div>
+
+                                        <!-- Upload Verso -->
+                                        <div class="form-group">
+                                            <label><i class="fas fa-image"></i> Verso du document *</label>
+                                            <div class="upload-zone" id="uploadBackZone" style="border:2px dashed var(--border-color);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.3s;background:var(--bg-secondary);">
+                                                <div id="backPlaceholder">
+                                                    <i class="fas fa-cloud-upload-alt" style="font-size:2.5rem;color:var(--primary-color,#6366f1);margin-bottom:0.75rem;display:block;"></i>
+                                                    <p style="font-weight:600;margin-bottom:0.25rem;">Cliquez ou glissez pour uploader</p>
+                                                    <small style="color:var(--text-secondary);">JPG, PNG — Max 5MB</small>
+                                                </div>
+                                                <img id="backPreview" style="display:none;max-width:100%;max-height:200px;border-radius:8px;">
+                                            </div>
+                                            <input type="file" id="kycDocBack" accept="image/*" style="display:none;">
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;margin-top:1.5rem;">
+                                        <button class="btn btn-outline" id="kycPrevStep2">
+                                            <i class="fas fa-arrow-left"></i> Retour
+                                        </button>
+                                        <button class="btn btn-primary" id="kycNextStep2">
+                                            Suivant <i class="fas fa-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- ÉTAPE 3: Selfie / Photo du visage -->
+                                <div class="kyc-step-content" id="kycStep3" style="display:none;">
+                                    <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">
+                                        <i class="fas fa-portrait" style="color:var(--primary-color,#6366f1);"></i> Photo du visage (Selfie)
+                                    </h3>
+                                    <p style="color:var(--text-secondary);margin-bottom:1.5rem;font-size:0.9rem;">
+                                        Prenez un selfie clair de votre visage. Votre visage doit correspondre à la photo sur votre pièce d'identité.
+                                    </p>
+
+                                    <div style="max-width:400px;margin:0 auto;">
+                                        <!-- Zone caméra / preview -->
+                                        <div id="selfieContainer" style="position:relative;width:100%;border-radius:16px;overflow:hidden;background:#000;margin-bottom:1rem;">
+                                            <video id="selfieVideo" style="width:100%;display:none;" playsinline></video>
+                                            <canvas id="selfieCanvas" style="display:none;"></canvas>
+                                            <div id="selfiePlaceholder" style="width:100%;padding:4rem 2rem;text-align:center;background:var(--bg-secondary);border-radius:16px;border:2px dashed var(--border-color);">
+                                                <i class="fas fa-user-circle" style="font-size:4rem;color:var(--primary-color,#6366f1);margin-bottom:1rem;display:block;"></i>
+                                                <p style="font-weight:600;">Prenez un selfie</p>
+                                                <small style="color:var(--text-secondary);">Visage bien éclairé, de face, sans lunettes</small>
+                                            </div>
+                                            <img id="selfiePreview" style="display:none;width:100%;border-radius:16px;">
+                                            <!-- Overlay guide -->
+                                            <div id="selfieGuide" style="display:none;position:absolute;inset:0;pointer-events:none;">
+                                                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:260px;border:3px solid rgba(99,102,241,0.8);border-radius:50%;box-shadow:0 0 0 9999px rgba(0,0,0,0.4);"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Boutons selfie -->
+                                        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;">
+                                            <button class="btn btn-primary" id="startSelfieCamera" style="flex:1;">
+                                                <i class="fas fa-camera"></i> Ouvrir la caméra
+                                            </button>
+                                            <button class="btn btn-primary" id="captureSelfie" style="display:none;flex:1;">
+                                                <i class="fas fa-camera"></i> Capturer
+                                            </button>
+                                            <button class="btn btn-outline" id="uploadSelfieBtn" style="flex:1;">
+                                                <i class="fas fa-upload"></i> Importer une photo
+                                            </button>
+                                            <input type="file" id="selfieFileInput" accept="image/*" style="display:none;">
+                                            <button class="btn btn-outline" id="retakeSelfie" style="display:none;">
+                                                <i class="fas fa-redo"></i> Reprendre
+                                            </button>
+                                        </div>
+
+                                        <!-- Consignes -->
+                                        <div style="margin-top:1.5rem;padding:1rem;background:var(--bg-secondary);border-radius:10px;border-left:4px solid var(--primary-color,#6366f1);">
+                                            <p style="font-weight:700;font-size:0.9rem;margin-bottom:0.5rem;"><i class="fas fa-info-circle"></i> Consignes photo :</p>
+                                            <ul style="font-size:0.85rem;color:var(--text-secondary);padding-left:1.5rem;margin:0;line-height:1.8;">
+                                                <li>Visage de face, bien centré</li>
+                                                <li>Bonne luminosité, pas de contre-jour</li>
+                                                <li>Sans lunettes de soleil ni chapeau</li>
+                                                <li>Expression neutre, bouche fermée</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <div style="display:flex;justify-content:space-between;margin-top:1.5rem;">
+                                        <button class="btn btn-outline" id="kycPrevStep3">
+                                            <i class="fas fa-arrow-left"></i> Retour
+                                        </button>
+                                        <button class="btn btn-primary" id="kycNextStep3">
+                                            Suivant <i class="fas fa-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- ÉTAPE 4: Récapitulatif et soumission -->
+                                <div class="kyc-step-content" id="kycStep4" style="display:none;">
+                                    <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">
+                                        <i class="fas fa-clipboard-check" style="color:var(--primary-color,#6366f1);"></i> Récapitulatif et soumission
+                                    </h3>
+                                    <p style="color:var(--text-secondary);margin-bottom:1.5rem;font-size:0.9rem;">
+                                        Vérifiez vos informations avant de soumettre votre demande de vérification.
+                                    </p>
+
+                                    <div id="kycSummary" style="background:var(--bg-secondary);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">
+                                        <!-- Rempli dynamiquement par JS -->
+                                    </div>
+
+                                    <div style="padding:1rem;background:#fef3c7;border-radius:10px;border-left:4px solid #f59e0b;margin-bottom:1.5rem;">
+                                        <p style="margin:0;font-size:0.9rem;color:#92400e;line-height:1.6;">
+                                            <i class="fas fa-exclamation-triangle" style="color:#f59e0b;"></i>
+                                            <strong>Important :</strong> Vos documents seront examinés par un administrateur. 
+                                            Vous recevrez un SMS de confirmation à votre numéro de téléphone une fois la vérification terminée. 
+                                            Le délai est généralement de 24 à 48 heures.
+                                        </p>
+                                    </div>
+
+                                    <div class="form-check" style="margin-bottom:1.5rem;">
+                                        <input type="checkbox" id="kycConfirmAccuracy" required>
+                                        <label for="kycConfirmAccuracy" style="font-size:0.9rem;">
+                                            Je confirme que toutes les informations fournies sont exactes et conformes à mon document d'identité.
+                                        </label>
+                                    </div>
+
+                                    <div style="display:flex;justify-content:space-between;">
+                                        <button class="btn btn-outline" id="kycPrevStep4">
+                                            <i class="fas fa-arrow-left"></i> Retour
+                                        </button>
+                                        <button class="btn btn-primary" id="kycSubmitBtn" disabled>
+                                            <i class="fas fa-paper-plane"></i> Soumettre la demande KYC
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bouton démarrer KYC (visible seulement si status = none ou rejected) -->
+                            <button id="startKycBtn" class="btn btn-primary" style="width:100%;padding:1rem;font-size:1rem;">
+                                <i class="fas fa-id-card"></i> Commencer la vérification KYC
+                            </button>
+
+                            <!-- Message KYC en attente -->
+                            <div id="kycPendingMessage" style="display:none;text-align:center;padding:2rem;">
+                                <div style="width:80px;height:80px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+                                    <i class="fas fa-clock" style="font-size:2rem;color:#f59e0b;"></i>
+                                </div>
+                                <h3 style="margin-bottom:0.5rem;">Vérification en cours</h3>
+                                <p style="color:var(--text-secondary);">Votre demande est en cours d'examen par un administrateur. Vous recevrez un SMS de confirmation.</p>
+                            </div>
+
+                            <!-- Message KYC approuvé -->
+                            <div id="kycApprovedMessage" style="display:none;text-align:center;padding:2rem;">
+                                <div style="width:80px;height:80px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+                                    <i class="fas fa-check-circle" style="font-size:2rem;color:#10b981;"></i>
+                                </div>
+                                <h3 style="margin-bottom:0.5rem;color:#065f46;">Identité vérifiée ✓</h3>
+                                <p style="color:var(--text-secondary);">Votre identité a été vérifiée avec succès. Vous avez accès à toutes les fonctionnalités.</p>
+                            </div>
+
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
-    </main>
 
     <!-- Modals -->
+    
+    <!-- Modal d'Authentification -->
     <div id="authModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -413,30 +986,81 @@
                 <button class="modal-close" id="authModalClose">&times;</button>
             </div>
             <div class="modal-body">
+                <!-- Formulaire de connexion -->
                 <form id="loginForm" class="auth-form">
                     <div class="form-group">
                         <label>Nom d'utilisateur Pi ou Adresse Wallet</label>
-                        <input type="text" id="loginIdentifier" readonly placeholder="Nom d'utilisateur Pi ou Adresse Wallet" title="Nom d'utilisateur Pi ou Adresse Wallet" required>
+                        <input 
+                            type="text" 
+                            id="loginIdentifier" 
+                            placeholder="Nom d'utilisateur ou adresse wallet" 
+                            required
+                        >
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
                 </form>
 
+                <!-- Formulaire d'inscription -->
                 <form id="registerForm" class="auth-form" style="display: none;">
                     <div class="form-group">
-                        <label>Nom d'utilisateur Pi</label>
-                        <input type="text" id="registerUsername" required>
+                        <label>Nom d'utilisateur Pi *</label>
+                        <input 
+                            type="text" 
+                            id="registerUsername" 
+                            placeholder="votre_username_pi"
+                            required
+                        >
                     </div>
                     <div class="form-group">
-                        <label>UID Pi</label>
-                        <input type="text" id="registerUid" required>
+                        <label>UID Pi *</label>
+                        <input 
+                            type="text" 
+                            id="registerUid" 
+                            placeholder="Votre UID Pi"
+                            required
+                        >
                     </div>
                     <div class="form-group">
-                        <label>Adresse Wallet Pi</label>
-                        <input type="text" id="registerWallet" required>
+                        <label>Adresse Wallet Pi *</label>
+                        <input 
+                            type="text" 
+                            id="registerWallet" 
+                            placeholder="Votre adresse wallet Pi (commence par G)"
+                            required
+                        >
                     </div>
                     <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" id="registerEmail">
+                        <label>Email *</label>
+                        <div class="input-with-button">
+                            <input 
+                                type="email" 
+                                id="registerEmail" 
+                                placeholder="votre@email.com"
+                                required
+                            >
+                            <button type="button" class="btn btn-outline btn-small" id="sendCodeBtn">
+                                Envoyer le code
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Téléphone (optionnel)</label>
+                        <input 
+                            type="tel" 
+                            id="registerPhone" 
+                            placeholder="+225 XX XX XX XX"
+                        >
+                    </div>
+                    <div class="form-group" id="verificationCodeGroup" style="display: none;">
+                        <label>Code de vérification *</label>
+                        <input 
+                            type="text" 
+                            id="registerVerificationCode" 
+                            placeholder="Code reçu par email"
+                            maxlength="6"
+                            required
+                        >
+                        <small class="form-hint">Entrez le code à 6 chiffres envoyé à votre email</small>
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">S'inscrire</button>
                 </form>
@@ -449,16 +1073,440 @@
         </div>
     </div>
 
+    <!-- Modal Validation Email -->
+    <div id="emailValidationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-envelope"></i> Vérification de l'email</h3>
+                <button class="modal-close" id="emailValidationClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="validation-steps">
+                    <div class="step active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Vérifier votre email</h4>
+                            <p>Un code à 6 chiffres a été envoyé à votre adresse email</p>
+                        </div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Saisir le code</h4>
+                            <p>Entrez le code reçu pour valider votre compte</p>
+                        </div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Compte activé</h4>
+                            <p>Votre compte sera activé après validation</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulaire de demande de code -->
+                <form id="requestCodeForm" class="validation-form active">
+                    <div class="form-group">
+                        <label for="verificationEmail">Adresse email *</label>
+                        <input 
+                            type="email" 
+                            id="verificationEmail" 
+                            placeholder="votre@email.com"
+                            required
+                            pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                        >
+                        <small class="form-hint">Entrez l'adresse email que vous souhaitez vérifier</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="verificationUsername">Nom d'utilisateur Pi *</label>
+                        <input 
+                            type="text" 
+                            id="verificationUsername" 
+                            placeholder="votre_username_pi"
+                            required
+                            minlength="3"
+                            maxlength="50"
+                        >
+                        <small class="form-hint">Votre nom d'utilisateur sur le réseau Pi</small>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="cancelValidation">Annuler</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i>
+                            Envoyer le code
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Formulaire de saisie du code -->
+                <form id="enterCodeForm" class="validation-form">
+                    <div class="email-display">
+                        <i class="fas fa-envelope"></i>
+                        <div class="email-info">
+                            <strong>Code envoyé à :</strong>
+                            <span id="sentEmail">chargement...</span>
+                        </div>
+                    </div>
+
+                    <div class="code-input-container">
+                        <div class="code-input-group">
+                            <input type="text" id="codeDigit1" maxlength="1" inputmode="numeric" pattern="[0-9]">
+                            <input type="text" id="codeDigit2" maxlength="1" inputmode="numeric" pattern="[0-9]">
+                            <input type="text" id="codeDigit3" maxlength="1" inputmode="numeric" pattern="[0-9]">
+                            <input type="text" id="codeDigit4" maxlength="1" inputmode="numeric" pattern="[0-9]">
+                            <input type="text" id="codeDigit5" maxlength="1" inputmode="numeric" pattern="[0-9]">
+                            <input type="text" id="codeDigit6" maxlength="1" inputmode="numeric" pattern="[0-9]">
+                        </div>
+                        <input type="hidden" id="fullCode">
+                        <small class="form-hint">Entrez le code à 6 chiffres reçu par email</small>
+                    </div>
+
+                    <div class="code-timer" id="codeTimer">
+                        <i class="fas fa-clock"></i>
+                        <span>Code valide pendant : <span id="timerValue">10:00</span></span>
+                    </div>
+
+                    <div class="attempts-info" id="attemptsInfo">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>Tentatives restantes : <span id="attemptsCount">5</span></span>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="resendCodeBtn" disabled>
+                            <i class="fas fa-redo"></i>
+                            Renvoyer le code <span id="resendTimer">(60)</span>
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="verifyCodeBtn">
+                            <i class="fas fa-check"></i>
+                            Vérifier le code
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Succès de validation -->
+                <div id="validationSuccess" class="validation-success">
+                    <div class="success-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h3>Email vérifié avec succès !</h3>
+                    <p>Votre adresse email a été validée. Vous pouvez maintenant continuer votre inscription.</p>
+                    <div class="success-actions">
+                        <button class="btn btn-primary" id="continueRegistration">
+                            <i class="fas fa-arrow-right"></i>
+                            Continuer l'inscription
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Échec de validation -->
+                <div id="validationError" class="validation-error">
+                    <div class="error-icon">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <h3>Erreur de validation</h3>
+                    <p id="errorMessage">Le code de vérification est incorrect ou a expiré.</p>
+                    <div class="error-actions">
+                        <button class="btn btn-outline" id="tryAgainBtn">
+                            <i class="fas fa-redo"></i>
+                            Réessayer
+                        </button>
+                        <button class="btn btn-primary" id="contactSupportBtn">
+                            <i class="fas fa-headset"></i>
+                            Contacter le support
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Envoi d'Argent -->
+    <div id="sendMoneyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-paper-plane"></i> Envoyer des Pi</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="send-money-stats">
+                    <div class="balance-info">
+                        <span>Solde disponible</span>
+                        <span class="balance-amount" id="sendBalanceAmount">0.00 π</span>
+                    </div>
+                </div>
+                
+                <form id="sendMoneyForm" class="send-money-form">
+                    <div class="form-group">
+                        <label>Adresse du destinataire *</label>
+                        <div class="input-with-button">
+                            <input type="text" id="recipientAddress" required 
+                                   placeholder="Ex: GA1234567890ABCDEF" 
+                                   pattern="^G[A-Z0-9]{10,}$">
+                            <button type="button" class="btn-icon" id="scanQRBtn" title="Scanner QR Code">
+                                <i class="fas fa-qrcode"></i>
+                            </button>
+                        </div>
+                        <small class="form-hint">
+                            Adresse wallet Pi du destinataire (commence par G)
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Montant (π) *</label>
+                        <div class="amount-input-group">
+                            <input type="number" id="sendAmount" required 
+                                   min="0.01" step="0.01" 
+                                   placeholder="0.00">
+                            <div class="currency-display">π</div>
+                        </div>
+                        <div class="amount-options">
+                            <button type="button" class="btn-amount-option" data-amount="10">10 π</button>
+                            <button type="button" class="btn-amount-option" data-amount="25">25 π</button>
+                            <button type="button" class="btn-amount-option" data-amount="50">50 π</button>
+                            <button type="button" class="btn-amount-option" data-amount="100">100 π</button>
+                            <button type="button" class="btn-amount-option" id="maxAmountBtn">Max</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Description (optionnel)</label>
+                        <textarea id="sendMemo" rows="2" placeholder="Ex: Paiement pour services..." maxlength="100"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Frais de transaction</label>
+                        <div class="fee-display">
+                            <span id="transactionFee">0.01 π</span>
+                            <small>(≈ $0.10)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="send-summary">
+                        <div class="summary-row">
+                            <span>Total à envoyer:</span>
+                            <span class="summary-amount" id="totalSendAmount">0.00 π</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Reçu par le destinataire:</span>
+                            <span class="summary-amount" id="netReceiveAmount">0.00 π</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="cancelSendBtn">Annuler</button>
+                        <button type="submit" class="btn btn-primary" id="confirmSendBtn">
+                            <i class="fas fa-paper-plane"></i> Envoyer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Historique des Transactions -->
+    <div id="transactionHistoryModal" class="modal">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3><i class="fas fa-history"></i> Historique des Transactions</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="history-controls">
+                    <select id="historyFilter" title="history">
+                        <option value="all">Toutes les transactions</option>
+                        <option value="income">Revenus</option>
+                        <option value="expense">Dépenses</option>
+                    </select>
+                    
+                    <div class="date-filter">
+                        <input type="date" id="historyStartDate" title="date">
+                        <span>à</span>
+                        <input type="date" id="historyEndDate" title="date">
+                        <button class="btn btn-outline btn-small" id="applyDateFilter">Appliquer</button>
+                    </div>
+                    
+                    <button class="btn btn-outline btn-small" id="exportHistoryBtn">
+                        <i class="fas fa-download"></i> Exporter
+                    </button>
+                </div>
+                
+                <div class="history-stats">
+                    <div class="stat-card mini">
+                        <div class="stat-value" id="totalTransactionsCount">0</div>
+                        <div class="stat-label">Transactions</div>
+                    </div>
+                    <div class="stat-card mini">
+                        <div class="stat-value" id="totalVolume">0 π</div>
+                        <div class="stat-label">Volume total</div>
+                    </div>
+                    <div class="stat-card mini">
+                        <div class="stat-value" id="netFlow">0 π</div>
+                        <div class="stat-label">Flux net</div>
+                    </div>
+                </div>
+                
+                <div class="transactions-container">
+                    <div class="transactions-list" id="detailedTransactionsList"></div>
+                    <div class="load-more" id="loadMoreHistory">
+                        <button class="btn btn-outline">Charger plus</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Détails Transaction -->
+    <div id="transactionDetailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-receipt"></i> Détails de la Transaction</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="transactionDetailsContent">
+                    <!-- Détails chargés dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal QR Code Scanner -->
+    <div id="qrScannerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-qrcode"></i> Scanner QR Code</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="qrScannerContainer">
+                    <div class="qr-placeholder">
+                        <i class="fas fa-camera fa-3x"></i>
+                        <p>Positionnez le QR Code dans le cadre</p>
+                    </div>
+                    <video id="qrScanner" style="display: none; width: 100%;"></video>
+                    <canvas id="qrCanvas" style="display: none;"></canvas>
+                </div>
+                <div class="qr-actions">
+                    <button class="btn btn-outline" id="startScannerBtn">
+                        <i class="fas fa-play"></i>
+                        Démarrer le scanner
+                    </button>
+                    <button class="btn btn-outline" id="stopScannerBtn" style="display: none;">
+                        <i class="fas fa-stop"></i>
+                        Arrêter
+                    </button>
+                    <button class="btn btn-outline" id="uploadQRBtn">
+                        <i class="fas fa-upload"></i>
+                        Importer image
+                    </button>
+                    <input type="file" id="qrImageUpload" accept="image/*" style="display: none;">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Ajout de Produit -->
+    <div id="addProductModal" class="modal">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus"></i> Ajouter un Produit</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addProductForm" class="product-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="productName">Nom du produit *</label>
+                            <input type="text" id="productName" required placeholder="Ex: iPhone 13">
+                        </div>
+                        <div class="form-group">
+                            <label for="productPrice">Prix (π) *</label>
+                            <div class="amount-input-group">
+                                <input type="number" id="productPrice" required min="0.01" step="0.01" placeholder="0.00">
+                                <div class="currency-display">π</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="productCategory">Catégorie *</label>
+                        <select id="productCategory" required>
+                            <option value="">Sélectionner une catégorie</option>
+                            <option value="electronics">Électronique</option>
+                            <option value="fashion">Mode</option>
+                            <option value="home">Maison</option>
+                            <option value="sports">Sports</option>
+                            <option value="books">Livres</option>
+                            <option value="digital">Digital</option>
+                            <option value="services">Services</option>
+                            <option value="other">Autre</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="productDescription">Description *</label>
+                        <textarea id="productDescription" rows="4" required placeholder="Décrivez votre produit en détail..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Images du produit (max 5)</label>
+                        <div class="image-upload-area" id="imageUploadArea">
+                            <div class="upload-placeholder">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Glissez-déposez vos images ici</p>
+                                <p class="upload-hint">ou cliquez pour sélectionner</p>
+                            </div>
+                            <input type="file" id="productImages" multiple accept="image/*" style="display: none;">
+                        </div>
+                        <div class="image-preview" id="imagePreview"></div>
+                        <small class="form-hint">Formats supportés: JPG, PNG, GIF. Taille max: 5MB par image</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="productQuantity">Quantité disponible</label>
+                            <input type="number" id="productQuantity" min="1" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="productCondition">État</label>
+                            <select id="productCondition">
+                                <option value="new">Neuf</option>
+                                <option value="like_new">Comme neuf</option>
+                                <option value="good">Bon état</option>
+                                <option value="fair">État correct</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="cancelAddProduct">Annuler</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Ajouter le produit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Spinner -->
     <div id="loadingSpinner" class="loading-spinner">
         <div class="spinner"></div>
     </div>
 
-    <!-- Scripts -->
-    <script src="js/auth.js"></script>
+ 
+    
+    <!-- Ordre correct des scripts -->
+    <script src="js/api.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/marketplace.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/profile.js"></script>
     <script src="js/wallet.js"></script>
-    <script src="js/ui.js"></script>
+    <script src="js/marketplace.js"></script>
+    <script src="js/services.js"></script>
 </body>
 </html>
