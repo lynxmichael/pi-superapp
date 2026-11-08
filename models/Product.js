@@ -69,6 +69,12 @@ const productSchema = new mongoose.Schema(
       enum: ['new', 'used', 'refurbished'],
       default: 'new'
     },
+    // Ville où se trouve le produit (livraison ou retrait)
+    city: {
+      type: String,
+      trim: true,
+      maxlength: 80
+    },
 
     tags: {
       type: [String],

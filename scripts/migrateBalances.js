@@ -20,15 +20,15 @@ async function migrateBalances() {
     {
       $match: {
         $or: [
-          { type: 'deposit', status: 'completed' },
-          { type: 'withdrawal', status: { $in: ['pending', 'processing', 'failed', 'completed'] } }
+          { type: { $in: PiOperation.IN_TYPES }, status: 'completed' },
+          { type: { $in: PiOperation.OUT_TYPES }, status: { $in: ['pending', 'processing', 'failed', 'held', 'completed'] } }
         ]
       }
     },
     {
       $group: {
         _id: '$user',
-        total: { $sum: { $cond: [{ $eq: ['$type', 'deposit'] }, '$amount', { $multiply: ['$amount', -1] }] } }
+        total: { $sum: { $cond: [{ $in: ['$type', PiOperation.IN_TYPES] }, '$amount', { $multiply: ['$amount', -1] }] } }
       }
     }
   ]);

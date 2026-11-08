@@ -1,162 +1,82 @@
-const Game = require('../models/Game');
+/**
+ * Jeux pour s'amuser : scores et classement, AUCUN gain en Pi
+ * (le score vient du navigateur et ne peut donc pas servir à payer quoi que ce soit).
+ */
 const GameScore = require('../models/GameScore');
+const { handle, httpError } = require('../utils/http');
 
-// Obtenir tous les jeux
-const getGames = async (req, res) => {
-  try {
-    const { page = 1, limit = 12, category, type } = req.query;
-    
-    const filter = { status: 'active' };
-    if (category) filter.category = category;
-    if (type) filter.type = type;
-
-    const games = await Game.find(filter)
-      .populate('developer', 'piUsername profile.avatar')
-      .sort({ 'stats.plays': -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const total = await Game.countDocuments(filter);
-
-    res.json({
-      games,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total
-    });
-  } catch (error) {
-    console.error('Erreur récupération jeux:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des jeux' });
+const GAMES = {
+  calcul: {
+    name: 'Calcul éclair',
+    description: 'Un maximum de bonnes réponses en 60 secondes.',
+    maxScore: 1000
+  },
+  memoire: {
+    name: 'Mémoire',
+    description: 'Retrouvez les 8 paires avec le moins de coups possible.',
+    maxScore: 1000
   }
 };
 
-// Obtenir un jeu spécifique
-const getGame = async (req, res) => {
-  try {
-    const { id } = req.params;
+const MIN_SECONDS_BETWEEN_SCORES = 5;
 
-    const game = await Game.findById(id)
-      .populate('developer', 'piUsername profile.avatar');
+function gameOr404(slug) {
+  const game = GAMES[slug];
+  if (!game) throw httpError(404, 'Jeu introuvable.');
+  return game;
+}
 
-    if (!game) {
-      return res.status(404).json({ error: 'Jeu non trouvé' });
+async function bestScores(slug, limit) {
+  return GameScore.aggregate([
+    { $match: { game: slug } },
+    { $sort: { score: -1, createdAt: 1 } },
+    { $group: { _id: '$user', piUsername: { $first: '$piUsername' }, score: { $first: '$score' } } },
+    { $sort: { score: -1 } },
+    { $limit: limit }
+  ]);
+}
+
+const listGames = handle(async (req, res) => {
+  const games = await Promise.all(Object.entries(GAMES).map(async ([slug, g]) => {
+    let best = null;
+    if (req.user) {
+      const top = await GameScore.findOne({ game: slug, user: req.user._id }).sort({ score: -1 });
+      best = top ? top.score : null;
     }
+    const [leader] = await bestScores(slug, 1);
+    return {
+      slug, name: g.name, description: g.description, myBest: best,
+      leader: leader ? { piUsername: leader.piUsername, score: leader.score } : null
+    };
+  }));
+  res.json({ games });
+});
 
-    // Incrémenter le compteur de vues
-    game.stats.plays += 1;
-    await game.save();
+const submitScore = handle(async (req, res) => {
+  const slug = req.params.slug;
+  const game = gameOr404(slug);
+  const score = Number(req.body && req.body.score);
+  if (!Number.isInteger(score) || score < 0 || score > game.maxScore) throw httpError(400, 'Score invalide.');
 
-    res.json({ game });
-  } catch (error) {
-    console.error('Erreur récupération jeu:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération du jeu' });
+  const last = await GameScore.findOne({ game: slug, user: req.user._id }).sort({ createdAt: -1 });
+  if (last && Date.now() - last.createdAt.getTime() < MIN_SECONDS_BETWEEN_SCORES * 1000) {
+    throw httpError(429, 'Doucement : attendez quelques secondes entre deux parties.');
   }
-};
 
-// Soumettre un score
-const submitScore = async (req, res) => {
-  try {
-    const { gameId, score, level, duration, rewardsEarned, metadata } = req.body;
-    const userId = req.user._id;
+  const previous = await GameScore.findOne({ game: slug, user: req.user._id }).sort({ score: -1 });
+  await GameScore.create({ user: req.user._id, piUsername: req.user.piUsername, game: slug, score });
+  const newRecord = !previous || score > previous.score;
+  res.status(201).json({ score, myBest: newRecord ? score : previous.score, newRecord });
+});
 
-    const game = await Game.findById(gameId);
-    if (!game) {
-      return res.status(404).json({ error: 'Jeu non trouvé' });
-    }
+const leaderboard = handle(async (req, res) => {
+  const slug = req.params.slug;
+  const game = gameOr404(slug);
+  const top = await bestScores(slug, 20);
+  res.json({
+    game: { slug, name: game.name },
+    leaderboard: top.map((row, i) => ({ rank: i + 1, piUsername: row.piUsername, score: row.score }))
+  });
+});
 
-    const gameScore = new GameScore({
-      user: userId,
-      game: gameId,
-      score,
-      level,
-      duration,
-      rewardsEarned,
-      metadata
-    });
-
-    await gameScore.save();
-
-    // Mettre à jour les statistiques du jeu
-    if (score > game.stats.topScore) {
-      game.stats.topScore = score;
-    }
-
-    // Calculer le score moyen
-    const scores = await GameScore.find({ game: gameId });
-    const averageScore = scores.reduce((acc, curr) => acc + curr.score, 0) / scores.length;
-    game.stats.averageScore = averageScore;
-
-    await game.save();
-
-    // Mettre à jour le solde de l'utilisateur si des Pi sont gagnés
-    if (rewardsEarned && rewardsEarned.pi > 0) {
-      const User = require('../models/User');
-      await User.findByIdAndUpdate(userId, {
-        $inc: {
-          balance: rewardsEarned.pi,
-          totalEarned: rewardsEarned.pi
-        }
-      });
-    }
-
-    res.status(201).json({
-      message: 'Score enregistré avec succès',
-      score: gameScore,
-      rewards: rewardsEarned
-    });
-  } catch (error) {
-    console.error('Erreur enregistrement score:', error);
-    res.status(500).json({ error: 'Erreur lors de l\'enregistrement du score' });
-  }
-};
-
-// Obtenir les classements d'un jeu
-const getLeaderboard = async (req, res) => {
-  try {
-    const { gameId } = req.params;
-    const { limit = 10 } = req.query;
-
-    const leaderboard = await GameScore.find({ game: gameId })
-      .populate('user', 'piUsername profile.avatar')
-      .sort({ score: -1 })
-      .limit(parseInt(limit));
-
-    res.json({ leaderboard });
-  } catch (error) {
-    console.error('Erreur récupération classement:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération du classement' });
-  }
-};
-
-// Obtenir l'historique des parties d'un utilisateur
-const getUserGameHistory = async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-
-    const gameHistory = await GameScore.find({ user: req.user._id })
-      .populate('game', 'name images')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const total = await GameScore.countDocuments({ user: req.user._id });
-
-    res.json({
-      gameHistory,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total
-    });
-  } catch (error) {
-    console.error('Erreur récupération historique jeux:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération de l\'historique' });
-  }
-};
-
-module.exports = {
-  getGames,
-  getGame,
-  submitScore,
-  getLeaderboard,
-  getUserGameHistory
-};
+module.exports = { GAMES, listGames, submitScore, leaderboard };

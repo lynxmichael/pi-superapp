@@ -55,20 +55,41 @@
         return /PiBrowser/i.test(navigator.userAgent) || window.self !== window.top;
     }
 
-    function api(path, options) {
+    // En mode test, le SDK Pi ne fonctionne que si la page est affichée DANS le bac à sable Pi,
+    // qui s'ouvre dans un navigateur d'ordinateur (pas dans le Pi Browser du téléphone).
+    var IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    var SANDBOX_HELP = IS_MOBILE
+        ? 'Mode test : le bac à sable Pi ne fonctionne pas sur téléphone. Ouvrez l\'adresse sandbox.minepi.com ' +
+          'du portail développeur dans Chrome sur votre ordinateur. Pour tester dans le Pi Browser, ' +
+          'il faut PI_SANDBOX=false et une adresse publique en https.'
+        : 'Mode test : n\'ouvrez pas localhost directement. Ouvrez l\'adresse du bac à sable ' +
+          'donnée par le portail développeur Pi (elle commence par https://sandbox.minepi.com).';
+
+    function sandboxOpenedDirectly() {
+        return !!state.settings.sandbox && window.self === window.top;
+    }
+
+    /** Requête vers l'API (chemin complet /api/...). body : objet JSON ou FormData. */
+    function request(path, options) {
         options = options || {};
-        var headers = { 'Content-Type': 'application/json' };
+        var headers = {};
+        var body = options.body;
+        if (body && !(body instanceof FormData)) {
+            headers['Content-Type'] = 'application/json';
+            body = JSON.stringify(body);
+        }
         if (state.token) headers.Authorization = 'Bearer ' + state.token;
 
-        return fetch('/api/pi' + path, {
-            method: options.method || 'GET',
+        return fetch(path, {
+            method: options.method || (body ? 'POST' : 'GET'),
             headers: headers,
-            body: options.body ? JSON.stringify(options.body) : undefined
+            body: body
         }).catch(function () {
             throw new Error('Pas de connexion au serveur. Vérifiez votre internet puis réessayez.');
         }).then(function (res) {
+            if (options.raw && res.ok) return res;
             return res.json().catch(function () { return {}; }).then(function (data) {
-                if (res.status === 401 && state.token && path !== '/auth') {
+                if (res.status === 401 && state.token && path !== '/api/pi/auth') {
                     logout();
                     throw new Error('Votre session a expiré. Reconnectez-vous.');
                 }
@@ -76,6 +97,10 @@
                 return data;
             });
         });
+    }
+
+    function api(path, options) {
+        return request('/api/pi' + path, options);
     }
 
     function withTimeout(promise, ms, message) {
@@ -91,7 +116,7 @@
     // ------------------------------------------------------------------
 
     function initPi() {
-        if (!window.Pi) return false;
+        if (!window.Pi || sandboxOpenedDirectly()) return false;
         try {
             window.Pi.init({ version: '2.0', sandbox: !!state.settings.sandbox });
             state.piReady = true;
@@ -118,6 +143,9 @@
     }
 
     function piAuthenticate() {
+        if (sandboxOpenedDirectly()) {
+            return Promise.reject(new Error(SANDBOX_HELP));
+        }
         if (!state.piReady) {
             return Promise.reject(new Error('Ouvrez cette page dans le Pi Browser pour vous connecter.'));
         }
@@ -142,18 +170,197 @@
 
     function showWelcome() {
         $('screenHome').hidden = true;
+        $('screenView').hidden = true;
         $('screenWelcome').hidden = false;
         $('who').hidden = true;
-        if (!inPiBrowser() && !state.settings.sandbox) {
+        if (sandboxOpenedDirectly()) {
+            setHint(SANDBOX_HELP, true);
+        } else if (!inPiBrowser() && !state.settings.sandbox) {
             setHint('Pour vous connecter, ouvrez cette page dans le Pi Browser.');
         }
     }
 
     function showHome() {
         $('screenWelcome').hidden = true;
+        $('screenView').hidden = true;
         $('screenHome').hidden = false;
         renderUser();
     }
+
+    // ------------------------------------------------------------------
+    // Navigation entre les écrans des services (#/marche, #/recharge...)
+    // ------------------------------------------------------------------
+
+    var routes = [];
+    var routeToken = 0;
+
+    /** Enregistre un écran : pattern du type '#/marche/produit/:id'. */
+    function route(pattern, handler) {
+        var keys = [];
+        var re = new RegExp('^' + pattern.replace(/\//g, '\\/').replace(/:(\w+)/g, function (m, key) {
+            keys.push(key);
+            return '([^/]+)';
+        }) + '$');
+        routes.push({ re: re, keys: keys, handler: handler });
+    }
+
+    function go(hash) {
+        if (location.hash === hash) handleRoute();
+        else location.hash = hash;
+    }
+
+    function handleRoute() {
+        if (!state.user) return;
+        var hash = location.hash || '#/';
+        if (hash === '#/' || hash === '#') {
+            showHome();
+            refresh().catch(function () {});
+            return;
+        }
+        var view = $('screenView');
+        for (var i = 0; i < routes.length; i++) {
+            var m = hash.match(routes[i].re);
+            if (!m) continue;
+            var params = {};
+            routes[i].keys.forEach(function (k, j) { params[k] = decodeURIComponent(m[j + 1]); });
+            $('screenWelcome').hidden = true;
+            $('screenHome').hidden = true;
+            view.hidden = false;
+            view.onclick = null;
+            view.onsubmit = null;
+            view.oninput = null;
+            view.onchange = null;
+            view.innerHTML = '<p class="loading">Chargement…</p>';
+            window.scrollTo(0, 0);
+            var token = ++routeToken;
+            var ctx = { view: view, params: params, isCurrent: function () { return token === routeToken; } };
+            Promise.resolve().then(function () { return routes[i].handler(ctx); }).catch(function (error) {
+                if (token !== routeToken) return;
+                view.innerHTML = html`${backLink('#/', 'Accueil')}<p class="notice notice-error">${error.message}</p>`;
+            });
+            return;
+        }
+        go('#/');
+    }
+
+    // ------------------------------------------------------------------
+    // Outils d'affichage partagés avec les écrans des services
+    // ------------------------------------------------------------------
+
+    function Raw(s) { this.s = s; }
+    function raw(s) { return new Raw(s); }
+
+    function esc(v) {
+        return String(v).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function renderValue(v) {
+        if (v instanceof Raw) return v.s;
+        if (Array.isArray(v)) return v.map(renderValue).join('');
+        if (v === null || v === undefined || v === false) return '';
+        return esc(v);
+    }
+
+    /** Gabarit HTML : tout ce qui est inséré est échappé (protection contre le code malveillant). */
+    function html(strings) {
+        var out = '';
+        for (var i = 0; i < strings.length; i++) {
+            out += strings[i];
+            if (i + 1 < arguments.length) out += renderValue(arguments[i + 1]);
+        }
+        return raw(out);
+    }
+
+    function backLink(hash, label) {
+        return html`<a class="back" href="${hash}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>${label}</a>`;
+    }
+
+    /** Remplit l'écran et branche les boutons [data-act] et formulaires [data-form]. */
+    function mount(ctx, content, handlers) {
+        if (!ctx.isCurrent()) return;
+        ctx.view.innerHTML = renderValue(content);
+        handlers = handlers || {};
+        ctx.view.onclick = function (e) {
+            var el = e.target.closest('[data-act]');
+            if (!el || !ctx.view.contains(el) || el.disabled) return;
+            var fn = handlers[el.dataset.act];
+            if (!fn) return;
+            e.preventDefault();
+            runAction(el, function () { return fn(el, e); });
+        };
+        ctx.view.onsubmit = function (e) {
+            var form = e.target.closest('form[data-form]');
+            if (!form) return;
+            e.preventDefault();
+            var fn = handlers[form.dataset.form];
+            if (!fn) return;
+            var button = form.querySelector('button[type="submit"]');
+            runAction(button || form, function () { return fn(form, e); }, form);
+        };
+        if (handlers.$input) ctx.view.oninput = function (e) { handlers.$input(e.target, e); };
+        if (handlers.$change) ctx.view.onchange = function (e) { handlers.$change(e.target, e); };
+    }
+
+    /** Exécute une action : désactive le bouton, affiche l'erreur à côté si elle échoue. */
+    function runAction(el, fn, form) {
+        var box = (form || el.closest('[data-box]') || el.parentElement);
+        var errorEl = box.querySelector(':scope > .form-error');
+        if (errorEl) errorEl.textContent = '';
+        var isButton = el.tagName === 'BUTTON';
+        var label = isButton ? el.innerHTML : null;
+        if (isButton) { el.disabled = true; if (el.dataset.busy) el.textContent = el.dataset.busy; }
+        return Promise.resolve().then(fn).catch(function (error) {
+            if (!errorEl) {
+                errorEl = document.createElement('p');
+                errorEl.className = 'form-error';
+                errorEl.setAttribute('role', 'alert');
+                box.appendChild(errorEl);
+            }
+            errorEl.textContent = error.message;
+        }).then(function () {
+            if (!isButton || !document.body.contains(el)) return;
+            el.disabled = false;
+            if (el.dataset.armed === '1') return; // attend le clic de confirmation : on garde « Confirmer… »
+            el.innerHTML = el.dataset.original || label;
+            delete el.dataset.original;
+        });
+    }
+
+    /** Bouton en deux temps : le premier clic demande confirmation, le second exécute. */
+    function confirmFirst(el, text) {
+        if (el.dataset.armed === '1') {
+            el.dataset.armed = '';
+            el.classList.remove('is-armed');
+            return true;
+        }
+        el.dataset.armed = '1';
+        if (!el.dataset.original) el.dataset.original = el.innerHTML;
+        el.textContent = text;
+        el.classList.add('is-armed');
+        setTimeout(function () {
+            if (document.body.contains(el) && el.dataset.armed === '1') {
+                el.dataset.armed = '';
+                el.innerHTML = el.dataset.original;
+                delete el.dataset.original;
+                el.classList.remove('is-armed');
+            }
+        }, 5000);
+        return false;
+    }
+
+    var toastTimer = null;
+    function toast(text) {
+        var t = $('toast');
+        t.textContent = text;
+        t.hidden = false;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { t.hidden = true; }, 3500);
+    }
+
+    var nfLocal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+    var dayFmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
     function setHint(text, isError) {
         var el = $('loginHint');
@@ -166,6 +373,7 @@
         if (!user) return;
         $('who').textContent = '@' + user.piUsername;
         $('who').hidden = false;
+        $('who').title = 'Mon compte';
         $('balance').textContent = nfBalance.format(user.balance || 0);
         $('adminLink').hidden = user.role !== 'admin';
 
@@ -178,8 +386,14 @@
     }
 
     var ICONS = {
-        deposit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>',
-        withdrawal: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5m0 0L7.5 9.5M12 5l4.5 4.5M5 20h14"/></svg>'
+        in: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>',
+        out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5m0 0L7.5 9.5M12 5l4.5 4.5M5 20h14"/></svg>'
+    };
+
+    var IN_TYPES = ['deposit', 'sale', 'income'];
+    var DEFAULT_TITLES = {
+        deposit: 'Dépôt', withdrawal: 'Retrait', purchase: 'Achat', sale: 'Vente', recharge: 'Recharge',
+        booking: 'Réservation', subscription: 'Abonnement', income: 'Revenu'
     };
 
     function statusOf(op) {
@@ -187,12 +401,19 @@
             if (op.status === 'completed') return ['Reçu', 'st-ok'];
             return ['En cours de confirmation', 'st-wait'];
         }
-        switch (op.status) {
-            case 'completed': return ['Envoyé', 'st-ok'];
-            case 'processing': return ['Envoi en cours', 'st-wait'];
-            case 'rejected': return ['Refusé', 'st-no'];
-            default: return ['En attente de validation', 'st-wait'];
+        if (op.type === 'withdrawal') {
+            switch (op.status) {
+                case 'completed': return ['Envoyé', 'st-ok'];
+                case 'processing': return ['Envoi en cours', 'st-wait'];
+                case 'rejected': return ['Refusé', 'st-no'];
+                default: return ['En attente de validation', 'st-wait'];
+            }
         }
+        if (op.status === 'refunded') return ['Remboursé', 'st-no'];
+        if (op.status === 'held') {
+            return [{ purchase: 'Bloqué jusqu\'à réception', recharge: 'En cours', booking: 'En attente du commerçant' }[op.type] || 'En attente', 'st-wait'];
+        }
+        return [IN_TYPES.indexOf(op.type) !== -1 ? 'Reçu' : 'Payé', 'st-ok'];
     }
 
     function el(tag, className, text) {
@@ -208,15 +429,15 @@
         $('historyEmpty').hidden = state.operations.length > 0;
 
         state.operations.forEach(function (op) {
-            var isDeposit = op.type === 'deposit';
+            var isIn = IN_TYPES.indexOf(op.type) !== -1;
             var status = statusOf(op);
-            var li = el('li', 'op ' + (isDeposit ? 'op-deposit' : 'op-withdrawal'));
+            var li = el('li', 'op ' + (isIn ? 'op-deposit' : 'op-withdrawal'));
 
             var icon = el('span', 'op-icon');
-            icon.innerHTML = ICONS[op.type];
+            icon.innerHTML = isIn ? ICONS.in : ICONS.out;
             li.appendChild(icon);
-            li.appendChild(el('span', 'op-title', isDeposit ? 'Dépôt' : 'Retrait'));
-            li.appendChild(el('span', 'op-amount', (isDeposit ? '+' : '−') + pi(op.amount)));
+            li.appendChild(el('span', 'op-title', op.label || DEFAULT_TITLES[op.type] || 'Opération'));
+            li.appendChild(el('span', 'op-amount' + (op.status === 'refunded' ? ' is-void' : ''), (isIn ? '+' : '−') + pi(op.amount)));
             li.appendChild(el('span', 'op-date', dateFmt.format(new Date(op.createdAt))));
             li.appendChild(el('span', 'op-status ' + status[1], status[0]));
 
@@ -227,6 +448,8 @@
             } else if (op.type === 'withdrawal' && op.fee > 0) {
                 note = (op.status === 'completed' ? 'Reçu sur votre wallet : ' : 'Vous recevrez ') + pi(op.netAmount) +
                     ' (frais ' + pi(op.fee) + ')';
+            } else if (op.status === 'refunded') {
+                note = 'Les ' + pi(op.amount) + ' ont été remis sur votre compte.' + (op.rejectionReason ? ' Motif : ' + op.rejectionReason : '');
             }
             if (note) li.appendChild(el('p', 'op-note', note));
 
@@ -265,9 +488,9 @@
         setButtonBusy(button, 'Connexion…');
         piAuthenticate()
             .then(function () {
-                showHome();
                 return refresh();
             })
+            .then(function () { handleRoute(); })
             .catch(function (error) { setHint(error.message, true); })
             .then(function () { setButtonBusy(button, null); });
     }
@@ -277,6 +500,7 @@
         state.user = null;
         state.operations = [];
         state.piAuthed = false;
+        if (location.hash && location.hash !== '#/') history.replaceState(null, '', location.pathname);
         showWelcome();
     }
 
@@ -486,6 +710,7 @@
         document.addEventListener('visibilitychange', function () {
             if (!document.hidden && state.user) refresh().catch(function () {});
         });
+        window.addEventListener('hashchange', handleRoute);
     }
 
     function start() {
@@ -503,7 +728,7 @@
 
                 // Session existante : on affiche tout de suite, et on reconnecte Pi en arrière-plan
                 return refresh().then(function () {
-                    showHome();
+                    handleRoute();
                     if (state.piReady && inPiBrowser()) {
                         piAuthenticate().catch(function () { /* on réessaiera au moment du dépôt */ });
                     }
@@ -512,6 +737,28 @@
                 });
             });
     }
+
+    window.PiApp = {
+        state: state,
+        request: request,
+        refresh: refresh,
+        route: route,
+        go: go,
+        mount: mount,
+        html: html,
+        raw: raw,
+        esc: esc,
+        backLink: backLink,
+        confirmFirst: confirmFirst,
+        toast: toast,
+        logout: logout,
+        pi: pi,
+        parseAmount: parseAmount,
+        round7: round7,
+        local: function (n) { return nfLocal.format(n); },
+        date: function (d) { return dateFmt.format(new Date(d)); },
+        day: function (d) { return dayFmt.format(new Date(d)); }
+    };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
     else start();

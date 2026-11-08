@@ -1,133 +1,99 @@
+/**
+ * Mes fichiers : stockage privé (chacun ne voit que ses fichiers), avec un quota par utilisateur.
+ */
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
 const File = require('../models/File');
+const { handle, httpError } = require('../utils/http');
+const { UPLOADS_DIR } = require('../utils/uploads');
 
-// Uploader un fichier
-const uploadFile = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Aucun fichier uploadé' });
-    }
+const FILES_DIR = path.join(UPLOADS_DIR, 'files');
+fs.mkdirSync(FILES_DIR, { recursive: true });
 
-    const { category, description, isPublic } = req.body;
+const MAX_FILE_MB = 10;
+const quotaBytes = () => (Number(process.env.FILES_QUOTA_MB) || 100) * 1024 * 1024;
 
-    const file = new File({
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype,
-      size: req.file.size,
-      url: req.file.path || `/uploads/${req.file.filename}`,
-      publicId: req.file.filename,
-      user: req.user._id,
-      category: category || 'other',
-      description,
-      isPublic: isPublic === 'true'
-    });
+const ALLOWED = new Set(['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.gif', '.txt', '.csv',
+  '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.zip', '.mp3', '.mp4']);
 
-    await file.save();
+const userDir = (userId) => path.join(FILES_DIR, String(userId));
 
-    res.status(201).json({
-      message: 'Fichier uploadé avec succès',
-      file
-    });
-  } catch (error) {
-    console.error('Erreur upload fichier:', error);
-    res.status(500).json({ error: 'Erreur lors de l\'upload du fichier' });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = userDir(req.user._id);
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => cb(null, crypto.randomBytes(16).toString('hex'))
+  }),
+  limits: { fileSize: MAX_FILE_MB * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED.has(path.extname(file.originalname || '').toLowerCase())) return cb(null, true);
+    cb(new Error('Type de fichier non accepté (PDF, images, documents Office, texte, ZIP, MP3, MP4).'));
   }
-};
+});
 
-// Obtenir les fichiers de l'utilisateur
-const getUserFiles = async (req, res) => {
-  try {
-    const { page = 1, limit = 20, category } = req.query;
-    
-    const filter = { user: req.user._id };
-    if (category) filter.category = category;
-
-    const files = await File.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const total = await File.countDocuments(filter);
-
-    res.json({
-      files,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total
+function uploadOne(req, res, next) {
+  upload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    res.status(400).json({
+      error: err.code === 'LIMIT_FILE_SIZE' ? `Fichier trop lourd (${MAX_FILE_MB} Mo maximum).` : err.message
     });
-  } catch (error) {
-    console.error('Erreur récupération fichiers:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des fichiers' });
+  });
+}
+
+async function usedBytes(userId) {
+  const [row] = await File.aggregate([{ $match: { user: userId } }, { $group: { _id: null, total: { $sum: '$size' } } }]);
+  return row ? row.total : 0;
+}
+
+function publicFile(f) {
+  return { id: f._id, name: f.originalName, size: f.size, mimeType: f.mimeType, createdAt: f.createdAt };
+}
+
+const listFiles = handle(async (req, res) => {
+  const files = await File.find({ user: req.user._id }).sort({ createdAt: -1 });
+  res.json({ files: files.map(publicFile), used: await usedBytes(req.user._id), quota: quotaBytes() });
+});
+
+const uploadFile = handle(async (req, res) => {
+  const file = req.file;
+  if (!file) throw httpError(400, 'Choisissez un fichier.');
+
+  const used = await usedBytes(req.user._id);
+  if (used + file.size > quotaBytes()) {
+    fs.unlink(file.path, () => {});
+    throw httpError(400, 'Espace plein : supprimez des fichiers pour en ajouter.');
   }
-};
 
-// Télécharger un fichier
-const downloadFile = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const name = path.basename(file.originalname || 'fichier').replace(/[^\p{L}\p{N} ._()-]/gu, '_').slice(0, 200);
+  const doc = await File.create({
+    user: req.user._id,
+    originalName: name,
+    storedName: file.filename,
+    mimeType: file.mimetype,
+    size: file.size
+  });
+  res.status(201).json({ file: publicFile(doc), used: used + file.size, quota: quotaBytes() });
+});
 
-    const file = await File.findOne({
-      _id: id,
-      $or: [
-        { user: req.user._id },
-        { isPublic: true }
-      ]
-    });
+const downloadFile = handle(async (req, res) => {
+  const doc = await File.findOne({ _id: req.params.id, user: req.user._id });
+  if (!doc) throw httpError(404, 'Fichier introuvable.');
+  const full = path.join(userDir(req.user._id), path.basename(doc.storedName));
+  if (!fs.existsSync(full)) throw httpError(404, 'Fichier introuvable.');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.download(full, doc.originalName);
+});
 
-    if (!file) {
-      return res.status(404).json({ error: 'Fichier non trouvé' });
-    }
+const deleteFile = handle(async (req, res) => {
+  const doc = await File.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+  if (!doc) throw httpError(404, 'Fichier introuvable.');
+  fs.unlink(path.join(userDir(req.user._id), path.basename(doc.storedName)), () => {});
+  res.json({ ok: true, used: await usedBytes(req.user._id), quota: quotaBytes() });
+});
 
-    // Incrémenter le compteur de téléchargements
-    file.downloads += 1;
-    await file.save();
-
-    // Rediriger vers l'URL ou servir le fichier
-    if (file.url.startsWith('http')) {
-      res.redirect(file.url);
-    } else {
-      res.download(file.url);
-    }
-  } catch (error) {
-    console.error('Erreur téléchargement fichier:', error);
-    res.status(500).json({ error: 'Erreur lors du téléchargement du fichier' });
-  }
-};
-
-// Supprimer un fichier
-const deleteFile = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const file = await File.findOneAndDelete({
-      _id: id,
-      user: req.user._id
-    });
-
-    if (!file) {
-      return res.status(404).json({ error: 'Fichier non trouvé' });
-    }
-
-    // Supprimer le fichier physique si nécessaire
-    const fs = require('fs');
-    const path = require('path');
-    if (file.url && !file.url.startsWith('http')) {
-      const filePath = path.join(__dirname, '..', file.url);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-
-    res.json({ message: 'Fichier supprimé avec succès' });
-  } catch (error) {
-    console.error('Erreur suppression fichier:', error);
-    res.status(500).json({ error: 'Erreur lors de la suppression du fichier' });
-  }
-};
-
-module.exports = {
-  uploadFile,
-  getUserFiles,
-  downloadFile,
-  deleteFile
-};
+module.exports = { uploadOne, listFiles, uploadFile, downloadFile, deleteFile, FILES_DIR };

@@ -1,44 +1,17 @@
 const mongoose = require('mongoose');
 
+/** Score d'une partie. Les jeux ne rapportent PAS de Pi : seulement des points et un classement. */
 const gameScoreSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  game: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Game',
-    required: true
-  },
-  score: {
-    type: Number,
-    required: true
-  },
-  level: {
-    type: Number,
-    default: 1
-  },
-  duration: {
-    type: Number, // en secondes
-    default: 0
-  },
-  rewardsEarned: {
-    pi: { type: Number, default: 0 },
-    points: { type: Number, default: 0 },
-    items: [String]
-  },
-  metadata: {
-    type: Map,
-    of: mongoose.Schema.Types.Mixed
-  }
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  piUsername: String,
+  game: { type: String, required: true },
+  score: { type: Number, required: true, min: 0 }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'game_scores_v2'
 });
 
-// Index pour les classements
 gameScoreSchema.index({ game: 1, score: -1 });
-gameScoreSchema.index({ user: 1, game: 1 });
-gameScoreSchema.index({ createdAt: -1 });
+gameScoreSchema.index({ user: 1, game: 1, createdAt: -1 });
 
 module.exports = mongoose.model('GameScore', gameScoreSchema);

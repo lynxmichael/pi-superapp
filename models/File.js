@@ -1,61 +1,15 @@
 const mongoose = require('mongoose');
 
+/** Fichier privé d'un utilisateur, rangé dans uploads/files/<id utilisateur>/ (jamais servi publiquement). */
 const fileSchema = new mongoose.Schema({
-  filename: {
-    type: String,
-    required: true
-  },
-  originalName: {
-    type: String,
-    required: true
-  },
-  mimeType: {
-    type: String,
-    required: true
-  },
-  size: {
-    type: Number,
-    required: true
-  },
-  url: {
-    type: String,
-    required: true
-  },
-  publicId: {
-    type: String,
-    required: true
-  },
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  
-  category: {
-    type: String,
-    enum: ['avatar', 'product', 'document', 'other'],
-    default: 'other'
-  },
-  isPublic: {
-    type: Boolean,
-    default: false
-  },
-  description: String,
-  downloads: {
-    type: Number,
-    default: 0
-  },
-  metadata: {
-    type: Map,
-    of: mongoose.Schema.Types.Mixed
-  }
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  originalName: { type: String, required: true, maxlength: 200 },
+  storedName: { type: String, required: true },
+  mimeType: String,
+  size: { type: Number, required: true, min: 0 }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'user_files'
 });
-
-// Index
-fileSchema.index({ user: 1, category: 1 });
-fileSchema.index({ isPublic: 1 });
-fileSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('File', fileSchema);

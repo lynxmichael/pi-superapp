@@ -13,6 +13,56 @@ let walletPage = 1;
 let txPage = 1;
 
 // ============================================================================
+// BOUTONS : la politique de sécurité (CSP) interdit les onclick="..." dans le HTML.
+// Les boutons portent donc data-onclick="fonction('arg', ...)" et un seul écouteur
+// appelle la fonction, uniquement si elle figure dans la liste ci-dessous (pas d'eval).
+// ============================================================================
+
+const ACTIONS = {
+    approveKYC, closeModal, confirmAction, editUser, exportExcel, exportPDF,
+    loadPendingKYC, loadUsers, openImageFullscreen, rejectKYC, reviewKYC,
+    saveSettings, saveUser, showConfirm, switchSection, toggleRejectForm,
+    viewTransaction, viewUser, changeLimit
+};
+
+function runInlineActions(el, attr) {
+    const code = el.getAttribute(attr) || '';
+    code.split(';').forEach(call => {
+        const m = call.trim().match(/^(\w+)\((.*)\)$/);
+        if (!m || !Object.prototype.hasOwnProperty.call(ACTIONS, m[1])) return;
+        const args = [];
+        const re = /'([^']*)'|(-?\d+(?:\.\d+)?)|this\.(src|value)/g;
+        let t;
+        while ((t = re.exec(m[2]))) {
+            if (t[1] !== undefined) args.push(t[1]);
+            else if (t[2] !== undefined) args.push(Number(t[2]));
+            else args.push(el[t[3]]);
+        }
+        ACTIONS[m[1]](...args);
+    });
+}
+
+document.addEventListener('click', e => {
+    const el = e.target.closest('[data-onclick]');
+    if (!el) return;
+    e.preventDefault();
+    runInlineActions(el, 'data-onclick');
+});
+
+document.addEventListener('change', e => {
+    const el = e.target.closest('[data-onchange]');
+    if (el) runInlineActions(el, 'data-onchange');
+});
+
+// Image de remplacement si l'avatar ne charge pas (l'événement "error" ne remonte pas : capture)
+document.addEventListener('error', e => {
+    const img = e.target;
+    if (img.tagName === 'IMG' && img.dataset.fallback && img.src !== img.dataset.fallback) {
+        img.src = img.dataset.fallback;
+    }
+}, true);
+
+// ============================================================================
 // INITIALISATION
 // ============================================================================
 
@@ -194,7 +244,7 @@ async function loadDashboard() {
                                 <div style="font-weight:600;font-size:.9rem;">${esc(u.piUsername)}</div>
                                 <div style="font-size:.8rem;color:var(--gray-400);">${u.verification?.kycSubmittedAt ? timeAgo(u.verification.kycSubmittedAt) : '—'}</div>
                             </div>
-                            <button class="btn btn-sm btn-warning" onclick="switchSection('kyc');reviewKYC('${u._id}')"><i class="fas fa-eye"></i></button>
+                            <button class="btn btn-sm btn-warning" data-onclick="switchSection('kyc');reviewKYC('${u._id}')"><i class="fas fa-eye"></i></button>
                         </div>`).join('');
                 }
             }
@@ -261,7 +311,7 @@ function renderUsers(users) {
 
         return `<tr>
             <td><div style="display:flex;align-items:center;gap:10px;">
-                <img src="${avatar}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;" onerror="this.src='https://ui-avatars.com/api/?name=U&background=ccc&color=fff&size=36'">
+                <img src="${avatar}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;" data-fallback="https://ui-avatars.com/api/?name=U&background=ccc&color=fff&size=36">
                 <div><div style="font-weight:600;font-size:.9rem;">${esc(u.piUsername)}</div><div style="font-size:.8rem;color:var(--gray-400);">${esc(u.walletAddress?.substring(0, 12) || '')}...</div></div>
             </div></td>
             <td style="font-size:.9rem;">${esc(u.email || '—')}</td>
@@ -271,11 +321,11 @@ function renderUsers(users) {
             <td>${kycBadge}</td>
             <td style="font-size:.85rem;color:var(--gray-500);">${lastLogin}</td>
             <td><div style="display:flex;gap:6px;justify-content:center;">
-                <button class="btn-action btn-view" title="Voir détails" onclick="viewUser('${u._id}')"><i class="fas fa-eye"></i></button>
-                ${kycStatus === 'pending' ? `<button class="btn-action btn-kyc" title="Examiner KYC" onclick="reviewKYC('${u._id}')"><i class="fas fa-id-card"></i></button>` : ''}
-                ${isActive ? `<button class="btn-action btn-warn" title="Suspendre" onclick="showConfirm('suspend','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-ban"></i></button>` : ''}
-                ${isSuspended ? `<button class="btn-action btn-ok" title="Activer" onclick="showConfirm('activate','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-check"></i></button>` : ''}
-                <button class="btn-action btn-del" title="Supprimer" onclick="showConfirm('delete','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-trash"></i></button>
+                <button class="btn-action btn-view" title="Voir détails" data-onclick="viewUser('${u._id}')"><i class="fas fa-eye"></i></button>
+                ${kycStatus === 'pending' ? `<button class="btn-action btn-kyc" title="Examiner KYC" data-onclick="reviewKYC('${u._id}')"><i class="fas fa-id-card"></i></button>` : ''}
+                ${isActive ? `<button class="btn-action btn-warn" title="Suspendre" data-onclick="showConfirm('suspend','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-ban"></i></button>` : ''}
+                ${isSuspended ? `<button class="btn-action btn-ok" title="Activer" data-onclick="showConfirm('activate','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-check"></i></button>` : ''}
+                <button class="btn-action btn-del" title="Supprimer" data-onclick="showConfirm('delete','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-trash"></i></button>
             </div></td>
         </tr>`;
     }).join('');
@@ -297,15 +347,15 @@ function updateStats(stats) {
 function updatePagination(total, current, pages) {
     const container = document.getElementById('paginationContainer');
     if (!container || pages <= 1) { if (container) container.innerHTML = ''; return; }
-    let html = `<button class="page-btn" ${current <= 1 ? 'disabled' : ''} onclick="loadUsers(${current - 1})"><i class="fas fa-chevron-left"></i></button>`;
+    let html = `<button class="page-btn" ${current <= 1 ? 'disabled' : ''} data-onclick="loadUsers(${current - 1})"><i class="fas fa-chevron-left"></i></button>`;
     for (let i = 1; i <= pages; i++) {
         if (i === 1 || i === pages || (i >= current - 1 && i <= current + 1)) {
-            html += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="loadUsers(${i})">${i}</button>`;
+            html += `<button class="page-btn ${i === current ? 'active' : ''}" data-onclick="loadUsers(${i})">${i}</button>`;
         } else if (i === current - 2 || i === current + 2) {
             html += `<span style="color:var(--gray-400);">...</span>`;
         }
     }
-    html += `<button class="page-btn" ${current >= pages ? 'disabled' : ''} onclick="loadUsers(${current + 1})"><i class="fas fa-chevron-right"></i></button>`;
+    html += `<button class="page-btn" ${current >= pages ? 'disabled' : ''} data-onclick="loadUsers(${current + 1})"><i class="fas fa-chevron-right"></i></button>`;
     container.innerHTML = html;
 }
 
@@ -365,12 +415,12 @@ function showUserDetailModal(u) {
             <div class="detail-item"><label>Total gagné</label><span>${(u.totalEarned || 0).toFixed(2)} π</span></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--gray-200);flex-wrap:wrap;">
-            <button class="btn btn-sm btn-ghost" onclick="editUser('${u._id}')"><i class="fas fa-edit"></i> Modifier</button>
-            ${kycStatus === 'pending' ? `<button class="btn btn-sm btn-primary" onclick="closeModal('detailModal');reviewKYC('${u._id}')"><i class="fas fa-id-card"></i> Examiner KYC</button>` : ''}
-            ${u.status === 'active' ? `<button class="btn btn-sm btn-warning" onclick="closeModal('detailModal');showConfirm('suspend','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-ban"></i> Suspendre</button>` : ''}
-            ${u.status === 'suspended' ? `<button class="btn btn-sm btn-success" onclick="closeModal('detailModal');showConfirm('activate','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-check"></i> Activer</button>` : ''}
-            ${!walletBlocked ? `<button class="btn btn-sm btn-danger" onclick="closeModal('detailModal');showConfirm('block_wallet','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-lock"></i> Bloquer wallet</button>` : `<button class="btn btn-sm btn-success" onclick="closeModal('detailModal');showConfirm('unblock_wallet','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-unlock"></i> Débloquer wallet</button>`}
-            <button class="btn btn-sm btn-danger" onclick="closeModal('detailModal');showConfirm('delete','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-trash"></i> Supprimer</button>
+            <button class="btn btn-sm btn-ghost" data-onclick="editUser('${u._id}')"><i class="fas fa-edit"></i> Modifier</button>
+            ${kycStatus === 'pending' ? `<button class="btn btn-sm btn-primary" data-onclick="closeModal('detailModal');reviewKYC('${u._id}')"><i class="fas fa-id-card"></i> Examiner KYC</button>` : ''}
+            ${u.status === 'active' ? `<button class="btn btn-sm btn-warning" data-onclick="closeModal('detailModal');showConfirm('suspend','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-ban"></i> Suspendre</button>` : ''}
+            ${u.status === 'suspended' ? `<button class="btn btn-sm btn-success" data-onclick="closeModal('detailModal');showConfirm('activate','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-check"></i> Activer</button>` : ''}
+            ${!walletBlocked ? `<button class="btn btn-sm btn-danger" data-onclick="closeModal('detailModal');showConfirm('block_wallet','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-lock"></i> Bloquer wallet</button>` : `<button class="btn btn-sm btn-success" data-onclick="closeModal('detailModal');showConfirm('unblock_wallet','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-unlock"></i> Débloquer wallet</button>`}
+            <button class="btn btn-sm btn-danger" data-onclick="closeModal('detailModal');showConfirm('delete','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-trash"></i> Supprimer</button>
         </div>`;
     openModal('detailModal');
 }
@@ -425,13 +475,13 @@ function showKYCReviewModal(u) {
         <div class="kyc-section"><h4><i class="fas fa-file-alt" style="color:var(--primary);"></i> Document: ${docTypes[docs.type] || docs.type || '—'} · N° ${esc(docs.number || '—')}</h4>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div><label style="display:block;font-size:.8rem;color:var(--gray-500);margin-bottom:6px;font-weight:600;">RECTO</label>
-                    ${docs.frontImage ? `<img src="${docs.frontImage}" class="kyc-doc-img" onclick="openImageFullscreen(this.src)" title="Cliquer pour agrandir">` : '<div class="kyc-doc-placeholder"><i class="fas fa-image"></i> Non fourni</div>'}</div>
+                    ${docs.frontImage ? `<img data-kyc-src="${docs.frontImage}" alt="Document KYC" class="kyc-doc-img" data-onclick="openImageFullscreen(this.src)" title="Cliquer pour agrandir">` : '<div class="kyc-doc-placeholder"><i class="fas fa-image"></i> Non fourni</div>'}</div>
                 <div><label style="display:block;font-size:.8rem;color:var(--gray-500);margin-bottom:6px;font-weight:600;">VERSO</label>
-                    ${docs.backImage ? `<img src="${docs.backImage}" class="kyc-doc-img" onclick="openImageFullscreen(this.src)" title="Cliquer pour agrandir">` : '<div class="kyc-doc-placeholder"><i class="fas fa-image"></i> Non fourni</div>'}</div>
+                    ${docs.backImage ? `<img data-kyc-src="${docs.backImage}" alt="Document KYC" class="kyc-doc-img" data-onclick="openImageFullscreen(this.src)" title="Cliquer pour agrandir">` : '<div class="kyc-doc-placeholder"><i class="fas fa-image"></i> Non fourni</div>'}</div>
             </div>
         </div>
         <div class="kyc-section"><h4><i class="fas fa-portrait" style="color:var(--primary);"></i> Selfie de vérification</h4>
-            ${selfie.image ? `<div style="text-align:center;"><img src="${selfie.image}" class="kyc-selfie-img" onclick="openImageFullscreen(this.src)" title="Agrandir"><div style="font-size:.8rem;color:var(--gray-500);margin-top:6px;">Capturé le ${selfie.capturedAt ? new Date(selfie.capturedAt).toLocaleString('fr-FR') : '—'}</div></div>` : '<div class="kyc-doc-placeholder"><i class="fas fa-user-circle"></i> Pas de selfie</div>'}
+            ${selfie.image ? `<div style="text-align:center;"><img data-kyc-src="${selfie.image}" alt="Document KYC" class="kyc-selfie-img" data-onclick="openImageFullscreen(this.src)" title="Agrandir"><div style="font-size:.8rem;color:var(--gray-500);margin-top:6px;">Capturé le ${selfie.capturedAt ? new Date(selfie.capturedAt).toLocaleString('fr-FR') : '—'}</div></div>` : '<div class="kyc-doc-placeholder"><i class="fas fa-user-circle"></i> Pas de selfie</div>'}
         </div>
         <div class="kyc-section"><h4><i class="fas fa-comment" style="color:var(--gray-500);"></i> Notes administrateur</h4>
             <textarea id="kycAdminNotes" rows="3" placeholder="Ajouter des notes (optionnel)..." style="width:100%;padding:10px 14px;border:2px solid var(--gray-200);border-radius:10px;font-family:inherit;font-size:.9rem;resize:vertical;"></textarea>
@@ -450,11 +500,12 @@ function showKYCReviewModal(u) {
             <input type="text" id="kycRejectReasonCustom" placeholder="Ou raison personnalisée..." style="width:100%;padding:10px 14px;border:2px solid var(--gray-200);border-radius:10px;font-family:inherit;font-size:.9rem;">
         </div>
         <div style="display:flex;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--gray-200);">
-            <button class="btn btn-success" style="flex:1;" onclick="approveKYC('${u._id || u.id}')"><i class="fas fa-check-circle"></i> Approuver</button>
-            <button class="btn btn-danger" style="flex:1;" id="kycRejectToggleBtn" onclick="toggleRejectForm()"><i class="fas fa-times-circle"></i> Rejeter</button>
-            <button class="btn btn-danger" style="flex:1;display:none;" id="kycRejectConfirmBtn" onclick="rejectKYC('${u._id || u.id}')"><i class="fas fa-paper-plane"></i> Confirmer le rejet</button>
+            <button class="btn btn-success" style="flex:1;" data-onclick="approveKYC('${u._id || u.id}')"><i class="fas fa-check-circle"></i> Approuver</button>
+            <button class="btn btn-danger" style="flex:1;" id="kycRejectToggleBtn" data-onclick="toggleRejectForm()"><i class="fas fa-times-circle"></i> Rejeter</button>
+            <button class="btn btn-danger" style="flex:1;display:none;" id="kycRejectConfirmBtn" data-onclick="rejectKYC('${u._id || u.id}')"><i class="fas fa-paper-plane"></i> Confirmer le rejet</button>
         </div>`;
     openModal('kycModal');
+    loadKycImages(body);
 }
 
 function toggleRejectForm() {
@@ -531,9 +582,9 @@ function renderPendingKYC(users) {
                 <div style="text-align:right;"><span class="badge badge-warning">En attente</span><div style="font-size:.8rem;color:var(--gray-400);margin-top:4px;">${timeDiff}</div></div>
             </div>
             <div style="display:flex;gap:10px;margin-top:12px;">
-                <button class="btn btn-sm btn-primary" onclick="reviewKYC('${u._id}')"><i class="fas fa-search"></i> Examiner</button>
-                <button class="btn btn-sm btn-success" onclick="approveKYC('${u._id}')"><i class="fas fa-check"></i> Approuver</button>
-                <button class="btn btn-sm btn-danger" onclick="reviewKYC('${u._id}')"><i class="fas fa-times"></i> Rejeter</button>
+                <button class="btn btn-sm btn-primary" data-onclick="reviewKYC('${u._id}')"><i class="fas fa-search"></i> Examiner</button>
+                <button class="btn btn-sm btn-success" data-onclick="approveKYC('${u._id}')"><i class="fas fa-check"></i> Approuver</button>
+                <button class="btn btn-sm btn-danger" data-onclick="reviewKYC('${u._id}')"><i class="fas fa-times"></i> Rejeter</button>
             </div>
         </div>`;
     }).join('');
@@ -592,8 +643,8 @@ async function loadWallets(page = 1) {
                         <td>${kycBadge}</td>
                         <td style="text-align:center;">
                             <div style="display:flex;gap:6px;justify-content:center;">
-                                <button class="btn-action btn-view" title="Détails" onclick="viewUser('${u._id}')"><i class="fas fa-eye"></i></button>
-                                ${!blocked ? `<button class="btn-action btn-del" title="Bloquer" onclick="showConfirm('block_wallet','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-lock"></i></button>` : `<button class="btn-action btn-ok" title="Débloquer" onclick="showConfirm('unblock_wallet','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-unlock"></i></button>`}
+                                <button class="btn-action btn-view" title="Détails" data-onclick="viewUser('${u._id}')"><i class="fas fa-eye"></i></button>
+                                ${!blocked ? `<button class="btn-action btn-del" title="Bloquer" data-onclick="showConfirm('block_wallet','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-lock"></i></button>` : `<button class="btn-action btn-ok" title="Débloquer" data-onclick="showConfirm('unblock_wallet','${u._id}','${esc(u.piUsername)}')"><i class="fas fa-unlock"></i></button>`}
                             </div>
                         </td>
                     </tr>`;
@@ -678,7 +729,7 @@ async function loadTransactions(page = 1) {
                         <td>${typeBadge}</td>
                         <td>${statusBadge}</td>
                         <td style="font-size:.85rem;color:var(--gray-500);">${tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('fr-FR') : '—'}</td>
-                        <td style="text-align:center;"><button class="btn-action btn-view" title="Détails" onclick="viewTransaction('${tx._id}')"><i class="fas fa-eye"></i></button></td>
+                        <td style="text-align:center;"><button class="btn-action btn-view" title="Détails" data-onclick="viewTransaction('${tx._id}')"><i class="fas fa-eye"></i></button></td>
                     </tr>`;
                 }).join('');
             }
@@ -834,8 +885,8 @@ function showEditModal(u) {
         <div class="form-field"><label>Solde (π)</label><input type="text" value="${(u.balance || 0).toFixed(2)} π" readonly disabled><small style="color:var(--gray-500);">Le solde change uniquement avec les dépôts et retraits Pi.</small></div>
         <div class="form-field"><label>Statut KYC</label><select id="editKyc"><option value="none" ${u.verification?.kycStatus === 'none' ? 'selected' : ''}>Non vérifié</option><option value="pending" ${u.verification?.kycStatus === 'pending' ? 'selected' : ''}>En attente</option><option value="approved" ${u.verification?.kycStatus === 'approved' ? 'selected' : ''}>Approuvé</option><option value="rejected" ${u.verification?.kycStatus === 'rejected' ? 'selected' : ''}>Rejeté</option></select></div>
         <div class="modal-foot" style="padding:16px 0 0;">
-            <button class="btn btn-ghost" onclick="closeModal('editModal')">Annuler</button>
-            <button class="btn btn-primary" onclick="saveUser('${u._id}')"><i class="fas fa-save"></i> Enregistrer</button>
+            <button class="btn btn-ghost" data-onclick="closeModal('editModal')">Annuler</button>
+            <button class="btn btn-primary" data-onclick="saveUser('${u._id}')"><i class="fas fa-save"></i> Enregistrer</button>
         </div>`;
     openModal('editModal');
 }
@@ -864,6 +915,21 @@ async function saveUser(id) {
 // ============================================================================
 // IMAGE FULLSCREEN
 // ============================================================================
+
+// Les documents KYC sont privés : on les charge avec le jeton admin (jamais par une adresse publique)
+function loadKycImages(root) {
+    root.querySelectorAll('img[data-kyc-src]').forEach(async (img) => {
+        const name = String(img.dataset.kycSrc || '').split('/').pop();
+        if (!name) return;
+        try {
+            const res = await fetch('/api/admin/kyc-file/' + encodeURIComponent(name), { headers: getHeaders() });
+            if (res.ok) img.src = URL.createObjectURL(await res.blob());
+            else img.alt = 'Document introuvable';
+        } catch (e) {
+            img.alt = 'Document indisponible';
+        }
+    });
+}
 
 function openImageFullscreen(src) {
     const overlay = document.createElement('div');

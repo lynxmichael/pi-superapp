@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retraits à valider : pi-superapp admin</title>
+    <title>Administration : pi-superapp</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
@@ -44,6 +44,15 @@
         .reject-form { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
         .reject-form input { flex: 1; min-width: 200px; border: 2px solid var(--line); border-radius: 12px; padding: 9px 12px; font: inherit; }
 
+        .tabs { flex-wrap: wrap; }
+        a.tab { text-decoration: none; color: var(--ink); }
+        .badge:empty { display: none; }
+        .badge { background: var(--amber-soft); color: var(--amber); border-radius: 999px; padding: 0 8px; margin-left: 4px; font-size: 0.85rem; }
+        .tab[aria-pressed="true"] .badge { background: #fff; }
+        .subtabs { display: flex; gap: 8px; margin: 0 0 6px; }
+        main section > .lead { margin-top: 16px; }
+        .settings { max-width: 640px; }
+        .settings h2 { margin: 18px 0 0; font-size: 1.1rem; }
         .gate { padding: 40px 0; }
         @media (max-width: 640px) {
             .row { grid-template-columns: 1fr auto; }
@@ -68,17 +77,62 @@
         </section>
 
         <main id="main" hidden>
-            <h1>Retraits à valider</h1>
-            <p class="lead">Chaque demande a déjà été retirée du solde de l'utilisateur. « Envoyer » transfère les Pi depuis le wallet de l'app ; « Refuser » rend les Pi à l'utilisateur.</p>
-
+            <h1>Administration</h1>
             <div class="figures" id="figures"></div>
 
-            <div class="tabs">
-                <button class="tab" type="button" data-status="open" aria-pressed="true">À traiter</button>
-                <button class="tab" type="button" data-status="all" aria-pressed="false">Tout l'historique</button>
+            <div class="tabs" role="tablist">
+                <button class="tab" type="button" data-tab="withdrawals" aria-pressed="true">Retraits <span class="badge" id="b-withdrawals"></span></button>
+                <button class="tab" type="button" data-tab="recharges" aria-pressed="false">Recharges à faire <span class="badge" id="b-recharges"></span></button>
+                <button class="tab" type="button" data-tab="disputes" aria-pressed="false">Litiges <span class="badge" id="b-disputes"></span></button>
+                <button class="tab" type="button" data-tab="settings" aria-pressed="false">Réglages</button>
+                <a class="tab" href="/admin/users">Vérifications KYC <span class="badge" id="b-kyc"></span></a>
             </div>
-            <ul class="rows" id="rows"></ul>
-            <p class="empty" id="empty" hidden>Aucune demande en attente.</p>
+
+            <section id="tab-withdrawals">
+                <p class="lead">Chaque demande a déjà été retirée du solde de l'utilisateur. « Envoyer » transfère les Pi depuis le wallet de l'app ; « Refuser » rend les Pi à l'utilisateur.</p>
+                <div class="subtabs">
+                    <button class="chip is-on" type="button" data-filter="open">À traiter</button>
+                    <button class="chip" type="button" data-filter="all">Tout l'historique</button>
+                </div>
+                <ul class="rows" id="rows"></ul>
+                <p class="empty" id="empty" hidden>Aucune demande en attente.</p>
+            </section>
+
+            <section id="tab-recharges" hidden>
+                <p class="lead">L'utilisateur a déjà payé : ses Pi sont bloqués. Faites la recharge depuis votre téléphone, puis cliquez sur « Fait ». Si elle est impossible, « Refuser » lui rend ses Pi.</p>
+                <div class="subtabs">
+                    <button class="chip is-on" type="button" data-rfilter="pending">À faire</button>
+                    <button class="chip" type="button" data-rfilter="all">Historique</button>
+                </div>
+                <ul class="rows" id="rechargeRows"></ul>
+            </section>
+
+            <section id="tab-disputes" hidden>
+                <p class="lead">L'acheteur dit ne pas avoir reçu le produit, ou qu'il ne correspond pas. Les Pi sont bloqués jusqu'à votre décision.</p>
+                <ul class="rows" id="disputeRows"></ul>
+            </section>
+
+            <section id="tab-settings" hidden>
+                <form class="form settings" id="settingsForm">
+                    <h2>Recharges</h2>
+                    <div class="two">
+                        <label class="field"><span>Valeur de 1 π <small>(vide = recharges fermées)</small></span><input name="rechargeRate" inputmode="decimal" placeholder="ex. 500"></label>
+                        <label class="field"><span>Monnaie</span><input name="rechargeCurrency" maxlength="10"></label>
+                    </div>
+                    <div class="two">
+                        <label class="field"><span>Montant minimum</span><input name="rechargeMin" inputmode="numeric"></label>
+                        <label class="field"><span>Montant maximum</span><input name="rechargeMax" inputmode="numeric"></label>
+                    </div>
+                    <label class="field"><span>Frais de recharge (%)</span><input name="rechargeFeePercent" inputmode="decimal"></label>
+                    <h2>Commissions de l'app</h2>
+                    <div class="two">
+                        <label class="field"><span>Sur les ventes du marché (%)</span><input name="marketCommissionPercent" inputmode="decimal"></label>
+                        <label class="field"><span>Sur les réservations et abonnements (%)</span><input name="offersCommissionPercent" inputmode="decimal"></label>
+                    </div>
+                    <button class="btn btn-main" type="submit" style="max-width:320px">Enregistrer les réglages</button>
+                    <p class="row-msg muted" id="settingsMsg" role="status"></p>
+                </form>
+            </section>
         </main>
     </div>
     <script src="/js/admin-retraits.js"></script>

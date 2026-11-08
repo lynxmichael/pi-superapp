@@ -9,6 +9,7 @@
  */
 const User = require('../models/User');
 const PiOperation = require('../models/PiOperation');
+const AppSetting = require('../models/AppSetting');
 const pi = require('../services/piPlatform');
 
 const EPS = 1e-9;
@@ -59,11 +60,14 @@ function parseAmount(raw) {
 }
 
 function publicUser(user) {
+  const kycStatus = (user.verification && user.verification.kycStatus) || 'none';
   return {
     id: user._id,
     piUsername: user.piUsername,
     balance: Math.max(0, round7(user.balance || 0)),
-    role: user.role
+    role: user.role,
+    kycStatus,
+    verified: kycStatus === 'approved'
   };
 }
 
@@ -71,6 +75,7 @@ function publicOperation(op) {
   return {
     id: op._id,
     type: op.type,
+    label: op.label,
     amount: op.amount,
     fee: op.fee || 0,
     netAmount: op.netAmount,
@@ -103,9 +108,27 @@ function adminUsernames() {
 // Configuration & connexion
 // ===========================================================================
 
-const getConfig = (req, res) => {
-  res.json(settings());
-};
+/** Réglages publics : limites Pi + réglages des services modifiables par l'admin. */
+async function publicSettings() {
+  const app = await AppSetting.current();
+  return {
+    ...settings(),
+    recharge: {
+      open: app.rechargeRate > 0,
+      rate: app.rechargeRate || null,
+      currency: app.rechargeCurrency,
+      feePercent: app.rechargeFeePercent,
+      min: app.rechargeMin,
+      max: app.rechargeMax
+    },
+    marketCommissionPercent: app.marketCommissionPercent,
+    offersCommissionPercent: app.offersCommissionPercent
+  };
+}
+
+const getConfig = handle(async (req, res) => {
+  res.json(await publicSettings());
+});
 
 const authenticate = handle(async (req, res) => {
   const { accessToken } = req.body || {};
@@ -152,7 +175,7 @@ const authenticate = handle(async (req, res) => {
 });
 
 const getMe = handle(async (req, res) => {
-  res.json({ user: publicUser(req.user), settings: settings() });
+  res.json({ user: publicUser(req.user), settings: await publicSettings() });
 });
 
 const listOperations = handle(async (req, res) => {
@@ -383,14 +406,22 @@ const adminSummary = handle(async (req, res) => {
   const withdrawalsOpen = pick('withdrawal', ['pending', 'processing', 'failed']);
   const userBalances = round7(balances ? balances.total : 0);
 
+  // Pi bloqués (achats en attente de réception, recharges à faire, réservations à accepter)
+  const [heldRow] = await PiOperation.aggregate([
+    { $match: { status: 'held' } },
+    { $group: { _id: null, amount: { $sum: '$amount' }, count: { $sum: 1 } } }
+  ]);
+  const held = { amount: round7(heldRow ? heldRow.amount : 0), count: heldRow ? heldRow.count : 0 };
+
   res.json({
     deposits,
     withdrawalsSent,
     withdrawalsOpen,
+    held,
     userBalances,
     users: balances ? balances.users : 0,
     // Ce que le wallet de l'app doit contenir au minimum pour tout rembourser
-    owedToUsers: round7(userBalances + withdrawalsOpen.net)
+    owedToUsers: round7(userBalances + withdrawalsOpen.net + held.amount)
   });
 });
 

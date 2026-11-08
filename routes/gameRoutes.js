@@ -1,18 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { auth, optionalAuth } = require('../middlewares/auth');
-const {
-  getGames,
-  getGame,
-  submitScore,
-  getLeaderboard,
-  getUserGameHistory
-} = require('../controllers/gameController');
+const g = require('../controllers/gameController');
 
-router.get('/games', optionalAuth, getGames);
-router.get('/games/:id', optionalAuth, getGame);
-router.post('/games/scores', auth, submitScore);
-router.get('/games/:gameId/leaderboard', optionalAuth, getLeaderboard);
-router.get('/user/games/history', auth, getUserGameHistory);
+router.get('/', optionalAuth, g.listGames);
+router.post('/:slug/scores', auth, g.submitScore);
+router.get('/:slug/leaderboard', g.leaderboard);
 
 module.exports = router;

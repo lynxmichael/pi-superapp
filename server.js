@@ -12,11 +12,6 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-// Anciens services (marketplace, jeux, recharge, KYC, transferts...) : désactivés
-// par défaut pour garder l'application simple. ATTENTION : leur ancienne connexion
-// ne demande pas de mot de passe, ne les activez pas en production.
-const LEGACY = String(process.env.ENABLE_LEGACY_SERVICES || '').toLowerCase() === 'true';
-
 const app = express();
 
 // Sécurité. Le SDK Pi est chargé depuis sdk.minepi.com, et le bac à sable Pi
@@ -26,7 +21,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://sdk.minepi.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://*.minepi.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
       imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
       connectSrc: ["'self'", 'https://*.minepi.com'],
@@ -45,7 +40,11 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Seules les photos des produits et des offres sont publiques.
+// Les documents KYC (uploads/kyc) et les fichiers privés (uploads/files) ne sont JAMAIS servis ici.
+app.use('/uploads/products', express.static(path.join(__dirname, 'uploads', 'products'), {
+  setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff')
+}));
 
 // ============================================================================
 // Démarrage : base de données et index
@@ -53,6 +52,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const User = require('./models/User');
 const PiOperation = require('./models/PiOperation');
+const INDEXED_MODELS = ['AppSetting', 'Product', 'MarketOrder', 'Recharge', 'Offer', 'Booking', 'Membership', 'GameScore', 'File']
+  .map((name) => require(`./models/${name}`));
 
 const initializeApp = async () => {
   await connectDB();
@@ -61,6 +62,7 @@ const initializeApp = async () => {
   try {
     await User.syncIndexes();
     await PiOperation.syncIndexes();
+    for (const model of INDEXED_MODELS) await model.syncIndexes();
   } catch (error) {
     console.error('⚠️  Mise à jour des index impossible :', error.message);
   }
@@ -69,11 +71,6 @@ const initializeApp = async () => {
   await require('./scripts/migrateBalances')();
 
   await checkDatabaseStatus();
-
-  if (LEGACY && process.env.NODE_ENV === 'development') {
-    const seedDatabase = require('./scripts/seedDatabase');
-    await seedDatabase();
-  }
 };
 
 // ============================================================================
@@ -186,32 +183,20 @@ app.post('/api/admin/auth/login', async (req, res) => {
 // Dépôts, retraits, connexion Pi
 app.use('/api/pi', require('./routes/piRoutes'));
 
-// Gestion des utilisateurs (admin)
+// Services (tous payés avec le solde pi-superapp)
+app.use('/api/account', require('./routes/accountRoutes'));
+app.use('/api/market', require('./routes/marketplaceRoutes'));
+app.use('/api/recharge', require('./routes/rechargeRoutes'));
+app.use('/api/offers', require('./routes/offerRoutes'));
+app.use('/api/games', require('./routes/gameRoutes'));
+app.use('/api/files', require('./routes/filesRoutes'));
+
+// Admin : services (réglages, recharges, litiges, KYC) puis gestion des utilisateurs
+app.use('/api/admin', require('./routes/adminServicesRoutes'));
 app.use('/api/admin', require('./routes/adminUsersRoutes'));
 
-if (LEGACY) {
-  console.log('⚠️  Anciens services activés (ENABLE_LEGACY_SERVICES=true)');
-  const legacyRoutes = [
-    ['/api/auth', './routes/userRoutes'],
-    ['/api/wallet', './routes/walletRoutes'],
-    ['/api/marketplace', './routes/marketplaceRoutes'],
-    ['/api/transactions', './routes/transactionRoutes'],
-    ['/api/payments', './routes/paymentRoutes'],
-    ['/api/ecommerce', './routes/ecommerceRoutes'],
-    ['/api/subscriptions', './routes/subscriptionRoutes'],
-    ['/api/reservations', './routes/reservationRoutes'],
-    ['/api/games', './routes/gameRoutes'],
-    ['/api/files', './routes/filesRoutes'],
-    ['/api/recharge', './routes/rechargeRoutes']
-  ];
-  legacyRoutes.forEach(([mount, routePath]) => {
-    try {
-      app.use(mount, require(routePath));
-    } catch (error) {
-      console.log(`⚠️  ${routePath} non disponible :`, error.message);
-    }
-  });
-}
+// Les anciennes routes (connexion sans mot de passe, transferts, paiements, e-commerce)
+// ne sont plus branchées : leurs fichiers restent dans le dépôt mais ne servent plus.
 
 // ============================================================================
 // Pages

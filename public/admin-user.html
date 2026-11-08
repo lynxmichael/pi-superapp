@@ -207,7 +207,7 @@
         <a href="#" class="active" data-section="users"><i class="fas fa-users"></i> Utilisateurs</a>
         <a href="#" data-section="kyc"><i class="fas fa-id-card"></i> Demandes KYC <span class="nav-badge" id="kycPendingBadge" style="display:none">0</span></a>
         <div class="nav-label">Finance</div>
-        <a href="/admin/retraits"><i class="fas fa-paper-plane"></i> Retraits Pi à valider</a>
+        <a href="/admin/retraits"><i class="fas fa-paper-plane"></i> Retraits, recharges, litiges</a>
         <a href="#" data-section="wallets"><i class="fas fa-wallet"></i> Wallets</a>
         <a href="#" data-section="transactions"><i class="fas fa-exchange-alt"></i> Transactions</a>
         <div class="nav-label">Système</div>
@@ -271,8 +271,8 @@
                         <select id="kycFilter"><option value="">Tous KYC</option><option value="approved">Vérifié</option><option value="pending">En attente</option><option value="rejected">Rejeté</option><option value="none">Non vérifié</option></select>
                     </div>
                     <div class="toolbar-actions">
-                        <button class="btn btn-ghost btn-sm" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
-                        <button class="btn btn-ghost btn-sm" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+                        <button class="btn btn-ghost btn-sm" data-onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+                        <button class="btn btn-ghost btn-sm" data-onclick="exportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
                     </div>
                 </div>
                 <div class="table-container"><table><thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Solde</th><th>KYC</th><th>Dernière activité</th><th style="text-align:center;">Actions</th></tr></thead>
@@ -280,7 +280,7 @@
                 <div class="table-footer">
                     <div class="info" id="tableInfo">Affichage de 0 à 0 sur 0 entrées</div>
                     <div style="display:flex;align-items:center;gap:16px;">
-                        <div class="per-page"><select id="limitSelect" onchange="changeLimit(this.value)"><option value="10">10/page</option><option value="25">25/page</option><option value="50">50/page</option></select></div>
+                        <div class="per-page"><select id="limitSelect" data-onchange="changeLimit(this.value)"><option value="10">10/page</option><option value="25">25/page</option><option value="50">50/page</option></select></div>
                         <div class="pagination" id="paginationContainer"></div>
                     </div>
                 </div>
@@ -292,7 +292,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <div><h3 style="font-size:1.1rem;font-weight:700;margin-bottom:4px;"><i class="fas fa-id-card" style="color:var(--warning);"></i> Demandes de vérification en attente</h3>
                 <p style="color:var(--gray-500);font-size:.9rem;">Examinez les documents, selfies et informations avant d'approuver ou rejeter.</p></div>
-                <button class="btn btn-ghost btn-sm" onclick="loadPendingKYC()"><i class="fas fa-sync-alt"></i> Rafraîchir</button>
+                <button class="btn btn-ghost btn-sm" data-onclick="loadPendingKYC()"><i class="fas fa-sync-alt"></i> Rafraîchir</button>
             </div>
             <div id="kycListContainer"><div style="text-align:center;padding:40px;color:var(--gray-400);"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;"></i><p style="margin-top:8px;">Chargement...</p></div></div>
         </div>
@@ -348,18 +348,18 @@
                 <div class="setting-row"><div class="setting-info"><strong>Mode maintenance</strong><span>Bloquer l'accès à l'app pour les utilisateurs</span></div><label class="toggle"><input type="checkbox" id="settingMaintenance"><span class="toggle-slider"></span></label></div>
                 <div class="setting-row"><div class="setting-info"><strong>Taux de change π → USD</strong><span>Valeur actuelle d'1 Pi en dollars</span></div><div><input type="number" value="0.01" step="0.001" style="width:120px;padding:8px 12px;border:2px solid var(--gray-200);border-radius:8px;font-family:inherit;text-align:right;" id="settingExchangeRate"> <span style="color:var(--gray-500);">$</span></div></div>
             </div>
-            <div style="text-align:right;margin-top:16px;"><button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Enregistrer les paramètres</button></div>
+            <div style="text-align:right;margin-top:16px;"><button class="btn btn-primary" data-onclick="saveSettings()"><i class="fas fa-save"></i> Enregistrer les paramètres</button></div>
         </div>
 
     </div>
 </div>
 
 <!-- ===== MODALS ===== -->
-<div class="modal-overlay" id="confirmModal"><div class="modal-box" style="max-width:440px;"><div class="modal-head"><h3 id="modalTitle">Confirmer l'action</h3><button class="close-btn" onclick="closeModal('confirmModal')">&times;</button></div><div class="modal-body"><p id="modalMessage" style="color:var(--gray-600);line-height:1.6;"></p></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('confirmModal')">Annuler</button><button class="btn btn-danger" id="confirmActionBtn" onclick="confirmAction()">Confirmer</button></div></div></div>
-<div class="modal-overlay" id="detailModal"><div class="modal-box" style="max-width:640px;"><div class="modal-head"><h3><i class="fas fa-user" style="color:var(--primary);"></i> Détail utilisateur</h3><button class="close-btn" onclick="closeModal('detailModal')">&times;</button></div><div class="modal-body" id="detailBody"></div></div></div>
-<div class="modal-overlay" id="editModal"><div class="modal-box" style="max-width:520px;"><div class="modal-head"><h3><i class="fas fa-user-edit" style="color:var(--primary);"></i> Modifier l'utilisateur</h3><button class="close-btn" onclick="closeModal('editModal')">&times;</button></div><div class="modal-body" id="editForm"></div></div></div>
-<div class="modal-overlay" id="kycModal"><div class="modal-box" style="max-width:700px;"><div class="modal-head"><h3><i class="fas fa-id-card" style="color:var(--warning);"></i> Examen de vérification KYC</h3><button class="close-btn" onclick="closeModal('kycModal')">&times;</button></div><div class="modal-body" id="kycBody"></div></div></div>
-<div class="modal-overlay" id="txDetailModal"><div class="modal-box" style="max-width:520px;"><div class="modal-head"><h3><i class="fas fa-receipt" style="color:var(--info);"></i> Détail transaction</h3><button class="close-btn" onclick="closeModal('txDetailModal')">&times;</button></div><div class="modal-body" id="txDetailBody"></div></div></div>
+<div class="modal-overlay" id="confirmModal"><div class="modal-box" style="max-width:440px;"><div class="modal-head"><h3 id="modalTitle">Confirmer l'action</h3><button class="close-btn" data-onclick="closeModal('confirmModal')">&times;</button></div><div class="modal-body"><p id="modalMessage" style="color:var(--gray-600);line-height:1.6;"></p></div><div class="modal-foot"><button class="btn btn-ghost" data-onclick="closeModal('confirmModal')">Annuler</button><button class="btn btn-danger" id="confirmActionBtn" data-onclick="confirmAction()">Confirmer</button></div></div></div>
+<div class="modal-overlay" id="detailModal"><div class="modal-box" style="max-width:640px;"><div class="modal-head"><h3><i class="fas fa-user" style="color:var(--primary);"></i> Détail utilisateur</h3><button class="close-btn" data-onclick="closeModal('detailModal')">&times;</button></div><div class="modal-body" id="detailBody"></div></div></div>
+<div class="modal-overlay" id="editModal"><div class="modal-box" style="max-width:520px;"><div class="modal-head"><h3><i class="fas fa-user-edit" style="color:var(--primary);"></i> Modifier l'utilisateur</h3><button class="close-btn" data-onclick="closeModal('editModal')">&times;</button></div><div class="modal-body" id="editForm"></div></div></div>
+<div class="modal-overlay" id="kycModal"><div class="modal-box" style="max-width:700px;"><div class="modal-head"><h3><i class="fas fa-id-card" style="color:var(--warning);"></i> Examen de vérification KYC</h3><button class="close-btn" data-onclick="closeModal('kycModal')">&times;</button></div><div class="modal-body" id="kycBody"></div></div></div>
+<div class="modal-overlay" id="txDetailModal"><div class="modal-box" style="max-width:520px;"><div class="modal-head"><h3><i class="fas fa-receipt" style="color:var(--info);"></i> Détail transaction</h3><button class="close-btn" data-onclick="closeModal('txDetailModal')">&times;</button></div><div class="modal-body" id="txDetailBody"></div></div></div>
 
 <div class="loading-overlay" id="loadingOverlay"><div style="text-align:center;"><div class="spinner"></div><p style="margin-top:16px;color:var(--gray-500);font-weight:500;" id="loadingText">Chargement...</p></div></div>
 <div class="toast-container" id="toastContainer"></div>
