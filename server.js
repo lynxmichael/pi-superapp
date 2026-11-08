@@ -1,113 +1,103 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const express = require('express');
-const { connectDB, createIndexes, checkDatabaseStatus } = require('./config/database');
+const { connectDB, checkDatabaseStatus } = require('./config/database');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const path = require('path');
 
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET manquant dans .env : ajoutez une longue chaîne secrète puis relancez.');
+  process.exit(1);
+}
+
+// Anciens services (marketplace, jeux, recharge, KYC, transferts...) : désactivés
+// par défaut pour garder l'application simple. ATTENTION : leur ancienne connexion
+// ne demande pas de mot de passe, ne les activez pas en production.
+const LEGACY = String(process.env.ENABLE_LEGACY_SERVICES || '').toLowerCase() === 'true';
+
 const app = express();
 
-// Middlewares de sécurité
+// Sécurité. Le SDK Pi est chargé depuis sdk.minepi.com, et le bac à sable Pi
+// (sandbox.minepi.com) affiche l'application dans un cadre.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-      imgSrc: ["'self'", "data:", "https:", "http:", "blob:"],
-      connectSrc: ["'self'"],
-      mediaSrc: ["'self'", "blob:"]
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://sdk.minepi.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+      connectSrc: ["'self'", 'https://*.minepi.com'],
+      frameSrc: ["'self'", 'https://*.minepi.com'],
+      frameAncestors: ["'self'", 'https://*.minepi.com', 'https://*.pinet.com'],
+      mediaSrc: ["'self'", 'blob:']
     }
   },
+  frameguard: false,
   crossOriginEmbedderPolicy: false
 }));
 
 app.use(compression());
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Servir les fichiers statiques
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Servir les uploads (images KYC, avatars)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Initialisation
+// ============================================================================
+// Démarrage : base de données et index
+// ============================================================================
+
+const User = require('./models/User');
+const PiOperation = require('./models/PiOperation');
+
 const initializeApp = async () => {
+  await connectDB();
+
+  // Met les index à jour (email et wallet devenus optionnels, nouvelle collection des opérations)
   try {
-    console.log('🔄 Connexion à la base de données...');
-    await connectDB();
-    
-    console.log('🔄 Chargement des modèles...');
-    require('./models/User');
-    require('./models/Transaction');
-    require('./models/Payment');
-    require('./models/Product');
-    require('./models/Wallet');
-    
-    console.log('✅ Tous les modèles chargés');
-    
-    await createIndexes();
-    await checkDatabaseStatus();
-    
-    if (process.env.NODE_ENV === 'development') {
-      const seedDatabase = require('./scripts/seedDatabase');
-      await seedDatabase();
-    }
-    
+    await User.syncIndexes();
+    await PiOperation.syncIndexes();
   } catch (error) {
-    console.error('❌ Erreur initialisation:', error);
-    process.exit(1);
+    console.error('⚠️  Mise à jour des index impossible :', error.message);
+  }
+
+  // Les anciens soldes (100 π offerts, etc.) ne viennent pas de vrais dépôts : on les recalcule une fois
+  await require('./scripts/migrateBalances')();
+
+  await checkDatabaseStatus();
+
+  if (LEGACY && process.env.NODE_ENV === 'development') {
+    const seedDatabase = require('./scripts/seedDatabase');
+    await seedDatabase();
   }
 };
 
 // ============================================================================
-// ⭐⭐⭐ ROUTES AUTH ADMIN — DIRECTEMENT ICI ⭐⭐⭐
-// Pas besoin de fichier séparé. Ça marche à 100%.
+// Connexion admin (code PIN) — utile depuis un ordinateur, hors du Pi Browser
 // ============================================================================
 
-const User = require('./models/User');
 const ADMIN_SECRET = process.env.ADMIN_REGISTRATION_CODE;
 
-// ---- TEST : visitez /api/admin/auth/test pour vérifier ----
-app.get('/api/admin/auth/test', (req, res) => {
-  res.json({
-    message: '✅ Routes admin auth OK !',
-    adminSecretConfigured: !!ADMIN_SECRET,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// ---- INSCRIPTION ADMIN ----
 app.post('/api/admin/auth/register', async (req, res) => {
   try {
     const { piUsername, piUid, walletAddress, email, phone, pin, adminCode, role } = req.body;
 
-    console.log('📋 Tentative inscription admin:', piUsername, email);
-
     if (!ADMIN_SECRET) {
-      console.error('❌ ADMIN_REGISTRATION_CODE non défini dans .env !');
-      return res.status(500).json({
-        error: 'ADMIN_REGISTRATION_CODE non défini dans .env. Ajoutez-le et redémarrez.'
-      });
+      return res.status(500).json({ error: 'ADMIN_REGISTRATION_CODE non défini dans .env. Ajoutez-le et redémarrez.' });
     }
-
     if (adminCode !== ADMIN_SECRET) {
       return res.status(403).json({ error: 'Code secret invalide' });
     }
-
     if (role !== 'admin') {
       return res.status(400).json({ error: 'Seuls les comptes admin ici' });
     }
-
     if (!piUsername || !piUid || !walletAddress || !email || !pin) {
       return res.status(400).json({ error: 'Champs requis manquants' });
     }
-
     if (!/^\d{6}$/.test(pin)) {
       return res.status(400).json({ error: 'Le PIN doit contenir exactement 6 chiffres' });
     }
@@ -115,10 +105,9 @@ app.post('/api/admin/auth/register', async (req, res) => {
     const existingUser = await User.findOne({
       $or: [{ piUsername }, { piUid }, { walletAddress }, { email }]
     });
-
     if (existingUser) {
       let field = '';
-      if (existingUser.piUsername === piUsername) field = 'Nom d\'utilisateur';
+      if (existingUser.piUsername === piUsername) field = "Nom d'utilisateur";
       else if (existingUser.piUid === piUid) field = 'Pi UID';
       else if (existingUser.walletAddress === walletAddress) field = 'Adresse wallet';
       else if (existingUser.email === email) field = 'Email';
@@ -135,32 +124,22 @@ app.post('/api/admin/auth/register', async (req, res) => {
       status: 'active',
       security: { loginPin: pin }
     });
-
     await user.save();
 
     const userResponse = user.toObject();
     delete userResponse.security;
     delete userResponse.__v;
 
-    console.log(`✅ Compte admin créé avec succès : ${piUsername}`);
-
-    res.status(201).json({
-      message: 'Compte administrateur créé avec succès',
-      user: userResponse
-    });
-
+    res.status(201).json({ message: 'Compte administrateur créé avec succès', user: userResponse });
   } catch (error) {
     console.error('❌ Erreur inscription admin:', error);
-    res.status(500).json({ error: 'Erreur lors de l\'inscription: ' + error.message });
+    res.status(500).json({ error: "Erreur lors de l'inscription" });
   }
 });
 
-// ---- CONNEXION ADMIN ----
 app.post('/api/admin/auth/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
-
-    console.log('🔑 Tentative connexion admin:', identifier);
 
     if (!identifier || !password) {
       return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
@@ -169,15 +148,12 @@ app.post('/api/admin/auth/login', async (req, res) => {
     const user = await User.findOne({
       $or: [{ email: identifier }, { piUsername: identifier }, { piUid: identifier }]
     });
-
     if (!user) {
       return res.status(401).json({ error: 'Identifiants incorrects' });
     }
-
-    if (user.role !== 'admin' && user.role !== 'moderator') {
+    if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Accès non autorisé. Compte non administrateur.' });
     }
-
     if (user.status !== 'active') {
       return res.status(403).json({ error: `Compte ${user.status}. Contactez l'administrateur.` });
     }
@@ -188,7 +164,6 @@ app.post('/api/admin/auth/login', async (req, res) => {
     }
 
     const token = user.generateAuthToken();
-
     user.stats.lastLogin = new Date();
     user.stats.loginCount += 1;
     await user.save();
@@ -197,14 +172,7 @@ app.post('/api/admin/auth/login', async (req, res) => {
     delete userResponse.security;
     delete userResponse.__v;
 
-    console.log(`✅ Connexion admin réussie : ${user.piUsername}`);
-
-    res.json({
-      message: 'Connexion réussie',
-      token,
-      user: userResponse
-    });
-
+    res.json({ message: 'Connexion réussie', token, user: userResponse });
   } catch (error) {
     console.error('❌ Erreur login admin:', error);
     res.status(500).json({ error: 'Erreur lors de la connexion' });
@@ -212,91 +180,49 @@ app.post('/api/admin/auth/login', async (req, res) => {
 });
 
 // ============================================================================
-// CHARGEMENT DES ROUTES (fichiers séparés)
+// Routes API
 // ============================================================================
 
-console.log('\n' + '='.repeat(80));
-console.log('🔄 CHARGEMENT DES ROUTES');
-console.log('='.repeat(80) + '\n');
+// Dépôts, retraits, connexion Pi
+app.use('/api/pi', require('./routes/piRoutes'));
 
-console.log('✅ /api/admin/auth/register → INTÉGRÉ dans server.js');
-console.log('✅ /api/admin/auth/login    → INTÉGRÉ dans server.js');
-console.log('✅ /api/admin/auth/test     → INTÉGRÉ dans server.js');
+// Gestion des utilisateurs (admin)
+app.use('/api/admin', require('./routes/adminUsersRoutes'));
 
-try {
-  // Routes authentification utilisateur
-  console.log('📂 Chargement de userRoutes.js...');
-  const userRoutes = require('./routes/userRoutes');
-  app.use('/api/auth', userRoutes);
-  console.log('✅ /api/auth → userRoutes');
-
-  // Routes wallet
-  console.log('📂 Chargement de walletRoutes.js...');
-  const walletRoutes = require('./routes/walletRoutes');
-  app.use('/api/wallet', walletRoutes);
-  console.log('✅ /api/wallet → walletRoutes');
-
-  // Routes marketplace
-  console.log('📂 Chargement de marketplaceRoutes.js...');
-  const marketplaceRoutes = require('./routes/marketplaceRoutes');
-  app.use('/api/marketplace', marketplaceRoutes);
-  console.log('✅ /api/marketplace → marketplaceRoutes');
-
-  // Routes transactions
-  console.log('📂 Chargement de transactionRoutes.js...');
-  const transactionRoutes = require('./routes/transactionRoutes');
-  app.use('/api/transactions', transactionRoutes);
-  console.log('✅ /api/transactions → transactionRoutes');
-
-  // Routes admin (gestion utilisateurs, KYC, wallets)
-  console.log('📂 Chargement de adminUsersRoutes.js...');
-  const adminUsersRoutes = require('./routes/adminUsersRoutes');
-  app.use('/api/admin', adminUsersRoutes);
-  console.log('✅ /api/admin → adminUsersRoutes');
-
-  // Routes payments
-  console.log('📂 Chargement de paymentRoutes.js...');
-  const paymentRoutes = require('./routes/paymentRoutes');
-  app.use('/api/payments', paymentRoutes);
-  console.log('✅ /api/payments → paymentRoutes');
-
-  // Routes optionnelles
-  const optionalRoutes = [
-    { name: 'ecommerceRoutes', path: './routes/ecommerceRoutes', mount: '/api/ecommerce' },
-    { name: 'subscriptionRoutes', path: './routes/subscriptionRoutes', mount: '/api/subscriptions' },
-    { name: 'reservationRoutes', path: './routes/reservationRoutes', mount: '/api/reservations' },
-    { name: 'gameRoutes', path: './routes/gameRoutes', mount: '/api/games' },
-    { name: 'filesRoutes', path: './routes/filesRoutes', mount: '/api/files' },
-    { name: 'rechargeRoutes', path: './routes/rechargeRoutes', mount: '/api/recharge' }
+if (LEGACY) {
+  console.log('⚠️  Anciens services activés (ENABLE_LEGACY_SERVICES=true)');
+  const legacyRoutes = [
+    ['/api/auth', './routes/userRoutes'],
+    ['/api/wallet', './routes/walletRoutes'],
+    ['/api/marketplace', './routes/marketplaceRoutes'],
+    ['/api/transactions', './routes/transactionRoutes'],
+    ['/api/payments', './routes/paymentRoutes'],
+    ['/api/ecommerce', './routes/ecommerceRoutes'],
+    ['/api/subscriptions', './routes/subscriptionRoutes'],
+    ['/api/reservations', './routes/reservationRoutes'],
+    ['/api/games', './routes/gameRoutes'],
+    ['/api/files', './routes/filesRoutes'],
+    ['/api/recharge', './routes/rechargeRoutes']
   ];
-
-  optionalRoutes.forEach(({ name, path: routePath, mount }) => {
+  legacyRoutes.forEach(([mount, routePath]) => {
     try {
-      console.log(`📂 Chargement de ${name}...`);
-      const route = require(routePath);
-      app.use(mount, route);
-      console.log(`✅ ${mount} → ${name}`);
+      app.use(mount, require(routePath));
     } catch (error) {
-      console.log(`⚠️ ${name} non disponible:`, error.message);
+      console.log(`⚠️  ${routePath} non disponible :`, error.message);
     }
   });
-
-  console.log('\n' + '='.repeat(80));
-  console.log('✅ ROUTES CHARGÉES AVEC SUCCÈS');
-  console.log('='.repeat(80) + '\n');
-
-} catch (error) {
-  console.error('\n❌ ERREUR CRITIQUE lors du chargement des routes:', error);
-  console.error('Stack:', error.stack);
-  process.exit(1);
 }
 
 // ============================================================================
-// PAGES ADMIN HTML
+// Pages
 // ============================================================================
 
 app.get('/admin/auth', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-auth.html'));
+});
+
+app.get('/admin/retraits', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-retraits.html'));
 });
 
 app.get('/admin/users', (req, res) => {
@@ -304,62 +230,35 @@ app.get('/admin/users', (req, res) => {
 });
 
 app.get('/admin', (req, res) => {
-  res.redirect('/admin/users');
+  res.redirect('/admin/retraits');
 });
 
-// ============================================================================
-// ROUTES UTILITAIRES
-// ============================================================================
+app.get('/api/health', (req, res) => {
+  const statusText = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  }[mongoose.connection.readyState];
 
-// Route de santé
-app.get('/api/health', async (req, res) => {
-  try {
-    const dbStatus = mongoose.connection.readyState;
-    const statusText = {
-      0: 'disconnected',
-      1: 'connected',
-      2: 'connecting',
-      3: 'disconnecting'
-    }[dbStatus];
-
-    res.json({
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      database: statusText,
-      service: 'Pi SuperApp API'
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'ERROR',
-      error: error.message
-    });
-  }
+  res.json({ status: 'OK', timestamp: new Date().toISOString(), database: statusText });
 });
 
-// Route principale
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Route de test auth
-app.get('/api/auth/test', (req, res) => {
-  res.json({ message: '✅ Auth router fonctionne!' });
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Route non trouvée', path: req.originalUrl });
 });
 
-// Gestion 404
-app.use('*', (req, res) => {
-  console.log(`❌ 404 - ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ 
-    error: 'Route non trouvée',
-    path: req.originalUrl,
-    method: req.method
-  });
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Gestion d'erreurs
 app.use((error, req, res, next) => {
   console.error('❌ Erreur serveur:', error);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Erreur interne du serveur',
     message: process.env.NODE_ENV === 'development' ? error.message : undefined
   });
@@ -367,21 +266,19 @@ app.use((error, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-// Démarrer le serveur
-initializeApp().then(() => {
-  app.listen(PORT, () => {
-    console.log('\n' + '='.repeat(80));
-    console.log('🚀 SERVEUR DÉMARRÉ AVEC SUCCÈS');
-    console.log('='.repeat(80));
-    console.log(`🔡 Port: ${PORT}`);
-    console.log(`🌐 URL: http://localhost:${PORT}`);
-    console.log(`🔑 Admin: http://localhost:${PORT}/admin/auth`);
-    console.log(`🧪 Test:  http://localhost:${PORT}/api/admin/auth/test`);
-    console.log('='.repeat(80) + '\n');
+if (require.main === module) {
+  initializeApp().then(() => {
+    app.listen(PORT, () => {
+      console.log('\n' + '='.repeat(60));
+      console.log(`🚀 pi-superapp démarré : http://localhost:${PORT}`);
+      console.log(`🔑 Admin des retraits : http://localhost:${PORT}/admin/retraits`);
+      console.log(`🧪 Mode bac à sable Pi : ${String(process.env.PI_SANDBOX).toLowerCase() === 'true' ? 'oui' : 'non'}`);
+      console.log('='.repeat(60) + '\n');
+    });
+  }).catch((error) => {
+    console.error('❌ Impossible de démarrer :', error);
+    process.exit(1);
   });
-}).catch(error => {
-  console.error('❌ Impossible de démarrer:', error);
-  process.exit(1);
-});
+}
 
-module.exports = app;
+module.exports = { app, initializeApp };

@@ -80,7 +80,7 @@ router.get('/users/:id', auth, isAdmin, async (req, res) => {
 // PUT /api/admin/users/:id
 router.put('/users/:id', auth, isAdmin, async (req, res) => {
   try {
-    const allowedUpdates = ['email', 'phone', 'role', 'status', 'balance', 'verification.kycStatus'];
+    const allowedUpdates = ['email', 'phone', 'role', 'status', 'verification.kycStatus'];
     const updates = {};
     Object.keys(req.body).forEach(key => {
       if (allowedUpdates.includes(key)) updates[key] = req.body[key];
@@ -179,4 +179,4 @@ router.put('/kyc/:id/approve', auth, isAdmin, approveKYC);
 // PUT /api/admin/kyc/:id/reject
 router.put('/kyc/:id/reject', auth, isAdmin, rejectKYC);
 
-module.exports = router;
+module.exports = router;

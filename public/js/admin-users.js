@@ -831,7 +831,7 @@ function showEditModal(u) {
             <div class="form-field"><label>Rôle</label><select id="editRole"><option value="user" ${u.role === 'user' ? 'selected' : ''}>Utilisateur</option><option value="merchant" ${u.role === 'merchant' ? 'selected' : ''}>Marchand</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option></select></div>
             <div class="form-field"><label>Statut</label><select id="editStatus"><option value="active" ${u.status === 'active' ? 'selected' : ''}>Actif</option><option value="suspended" ${u.status === 'suspended' ? 'selected' : ''}>Suspendu</option><option value="pending" ${u.status === 'pending' ? 'selected' : ''}>En attente</option></select></div>
         </div>
-        <div class="form-field"><label>Solde (π)</label><input type="number" id="editBalance" value="${u.balance || 0}" step="0.01" min="0"></div>
+        <div class="form-field"><label>Solde (π)</label><input type="text" value="${(u.balance || 0).toFixed(2)} π" readonly disabled><small style="color:var(--gray-500);">Le solde change uniquement avec les dépôts et retraits Pi.</small></div>
         <div class="form-field"><label>Statut KYC</label><select id="editKyc"><option value="none" ${u.verification?.kycStatus === 'none' ? 'selected' : ''}>Non vérifié</option><option value="pending" ${u.verification?.kycStatus === 'pending' ? 'selected' : ''}>En attente</option><option value="approved" ${u.verification?.kycStatus === 'approved' ? 'selected' : ''}>Approuvé</option><option value="rejected" ${u.verification?.kycStatus === 'rejected' ? 'selected' : ''}>Rejeté</option></select></div>
         <div class="modal-foot" style="padding:16px 0 0;">
             <button class="btn btn-ghost" onclick="closeModal('editModal')">Annuler</button>
@@ -844,11 +844,10 @@ async function saveUser(id) {
     try {
         showLoading('Sauvegarde...');
         const body = {
-            email: document.getElementById('editEmail')?.value,
+            email: document.getElementById('editEmail')?.value || undefined,
             phone: document.getElementById('editPhone')?.value,
             role: document.getElementById('editRole')?.value,
             status: document.getElementById('editStatus')?.value,
-            balance: parseFloat(document.getElementById('editBalance')?.value) || 0,
             'verification.kycStatus': document.getElementById('editKyc')?.value
         };
         const res = await fetch(`${API}/users/${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(body) });
@@ -954,4 +953,4 @@ function timeAgo(date) {
     if (diff < 86400) return `Il y a ${Math.floor(diff / 3600)}h`;
     if (diff < 604800) return `Il y a ${Math.floor(diff / 86400)}j`;
     return d.toLocaleDateString('fr-FR');
-}
+}

@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Vérifier si déjà connecté
     const token = localStorage.getItem('pi_token');
     if (token) {
-        window.location.href = '/admin/users';
+        window.location.href = '/admin/retraits';
     }
 
     // Événements des onglets
@@ -103,7 +103,7 @@ async function handleLogin(event) {
         showAlert('Connexion réussie ! Redirection...', 'success');
 
         setTimeout(() => {
-            window.location.href = '/admin/users';
+            window.location.href = '/admin/retraits';
         }, 1500);
 
     } catch (error) {
@@ -168,4 +168,4 @@ async function handleRegister(event) {
     } catch (error) {
         showAlert(error.message);
     }
-}
+}

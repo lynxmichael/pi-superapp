@@ -103,8 +103,9 @@ router.get('/users/:id', auth, isAdmin, async (req, res) => {
 // PUT /api/admin/users/:id - Modifier un utilisateur
 router.put('/users/:id', auth, isAdmin, async (req, res) => {
   try {
+    // Le solde n'est pas modifiable à la main : il ne bouge qu'avec de vrais dépôts et retraits Pi
     const allowedUpdates = [
-      'piUsername', 'email', 'role', 'status', 'balance',
+      'piUsername', 'email', 'role', 'status',
       'verification.kycStatus', 'phone'
     ];
 
@@ -208,4 +209,4 @@ router.put('/kyc/:id/approve', auth, isAdmin, approveKYC);
 // PUT /api/admin/kyc/:id/reject - Rejeter un KYC
 router.put('/kyc/:id/reject', auth, isAdmin, rejectKYC);
 
-module.exports = router;
+module.exports = router;

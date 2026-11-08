@@ -15,26 +15,24 @@ const userSchema = new mongoose.Schema({
     required: [true, 'L\'UID Pi est requis'],
     unique: true
   },
+  // Optionnel : la connexion Pi ne fournit pas toujours l'adresse du wallet
   walletAddress: {
     type: String,
-    required: [true, 'L\'adresse du wallet est requise'],
     unique: true,
-    validate: {
-      validator: function(v) {
-        return v && v.length > 0;
-      },
-      message: 'L\'adresse du wallet est invalide'
-    }
+    sparse: true,
+    trim: true
   },
+  // Optionnel : la connexion Pi ne demande pas d'email
   email: {
     type: String,
-    required: [true, 'L\'email est requis'],
     unique: true,
+    sparse: true,
     trim: true,
     lowercase: true,
     validate: {
       validator: function(v) {
-        return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(v);
+        if (!v) return true;
+        return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,})+$/.test(v);
       },
       message: 'Email invalide'
     }
@@ -50,9 +48,10 @@ const userSchema = new mongoose.Schema({
       message: 'Numéro de téléphone invalide'
     }
   },
+  // Solde en Pi réellement déposés : toujours 0 à la création
   balance: {
     type: Number,
-    default: 100.00,
+    default: 0,
     min: [0, 'Le solde ne peut pas être négatif']
   },
   totalEarned: {
@@ -251,9 +250,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Index
-userSchema.index({ piUsername: 1 });
-userSchema.index({ walletAddress: 1 });
-userSchema.index({ email: 1 });
+// piUsername, piUid, walletAddress et email sont déjà indexés (unique)
 userSchema.index({ 'stats.joinedAt': -1 });
 userSchema.index({ status: 1 });
 userSchema.index({ 'verification.kycStatus': 1 });
@@ -323,4 +320,4 @@ userSchema.methods.decrementBalance = async function(amount) {
 
 const User = mongoose.model('User', userSchema);
 
-module.exports = User;
+module.exports = User;
